@@ -59,6 +59,7 @@ type Currency = 'KGS' | 'USD' | 'EUR' | 'CNY';
 type Tone = 'good' | 'warning' | 'critical' | 'neutral';
 type FlowStatus = 'Подтверждено' | 'В прогнозе' | 'Согласование' | 'Рекомендация' | 'На согласовании' | 'Согласовано' | 'Отклонено';
 type StatusFilter = 'Все' | 'На согласовании' | 'Согласовано' | 'Отклонено';
+type UserRole = 'Казначей' | 'Риск-менеджер' | 'Руководитель' | 'Аудитор';
 
 type Flow = {
   id: number;
@@ -91,6 +92,33 @@ const currencyLimits: Record<Currency, { reserve: number; balance: number }> = {
   USD: { reserve: 8, balance: 12.4 },
   EUR: { reserve: 2.4, balance: 3.1 },
   CNY: { reserve: 7, balance: 9.8 },
+};
+
+const roleAccess: Record<UserRole, { canCreate: boolean; canApprove: boolean; canSetLimits: boolean; description: string }> = {
+  Казначей: {
+    canCreate: true,
+    canApprove: true,
+    canSetLimits: false,
+    description: 'Создает и согласовывает операционные заявки.',
+  },
+  'Риск-менеджер': {
+    canCreate: false,
+    canApprove: false,
+    canSetLimits: true,
+    description: 'Настраивает лимиты и контролирует нарушения.',
+  },
+  Руководитель: {
+    canCreate: false,
+    canApprove: true,
+    canSetLimits: false,
+    description: 'Видит сводку и может утверждать критические решения.',
+  },
+  Аудитор: {
+    canCreate: false,
+    canApprove: false,
+    canSetLimits: false,
+    description: 'Только просмотр и контроль журнала действий.',
+  },
 };
 
 const baseForecast = [
@@ -185,10 +213,18 @@ const opsChecklist = [
 export default function Home() {
   const [scenario, setScenario] = useState<Scenario>('base');
   const [currency, setCurrency] = useState<Currency>('KGS');
+  const [role, setRole] = useState<UserRole>('Казначей');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Все');
   const [requestAmount, setRequestAmount] = useState('120');
   const [requestTitle, setRequestTitle] = useState('Крупный клиентский платеж');
+  const [limitDraft, setLimitDraft] = useState('900');
+  const [limitOverrides, setLimitOverrides] = useState<Record<Currency, number>>({
+    KGS: currencyLimits.KGS.reserve,
+    USD: currencyLimits.USD.reserve,
+    EUR: currencyLimits.EUR.reserve,
+    CNY: currencyLimits.CNY.reserve,
+  });
   const [flows, setFlows] = useState(initialFlows);
   const [auditLog, setAuditLog] = useState<AuditEvent[]>([
     {
@@ -209,12 +245,22 @@ export default function Home() {
   useEffect(() => {
     const savedFlows = window.localStorage.getItem('liquidity-planner-flows');
     const savedAudit = window.localStorage.getItem('liquidity-planner-audit');
+    const savedLimits = window.localStorage.getItem('liquidity-planner-limits');
+    const savedRole = window.localStorage.getItem('liquidity-planner-role') as UserRole | null;
 
     if (savedFlows) {
       setFlows(JSON.parse(savedFlows) as Flow[]);
     }
     if (savedAudit) {
       setAuditLog(JSON.parse(savedAudit) as AuditEvent[]);
+    }
+    if (savedLimits) {
+      const parsedLimits = JSON.parse(savedLimits) as Record<Currency, number>;
+      setLimitOverrides(parsedLimits);
+      setLimitDraft(String(parsedLimits.KGS ?? currencyLimits.KGS.reserve));
+    }
+    if (savedRole && savedRole in roleAccess) {
+      setRole(savedRole);
     }
     setIsHydrated(true);
   }, []);
@@ -223,7 +269,13 @@ export default function Home() {
     if (!isHydrated) return;
     window.localStorage.setItem('liquidity-planner-flows', JSON.stringify(flows));
     window.localStorage.setItem('liquidity-planner-audit', JSON.stringify(auditLog));
-  }, [auditLog, flows, isHydrated]);
+    window.localStorage.setItem('liquidity-planner-limits', JSON.stringify(limitOverrides));
+    window.localStorage.setItem('liquidity-planner-role', role);
+  }, [auditLog, flows, isHydrated, limitOverrides, role]);
+
+  useEffect(() => {
+    setLimitDraft(String(limitOverrides[currency]));
+  }, [currency, limitOverrides]);
 
   const selectedFlows = flows.filter((flow) => {
     const currencyMatch = flow.currency === currency;
@@ -244,7 +296,8 @@ export default function Home() {
     .filter((flow) => flow.status !== 'Отклонено' && flow.impact < 0 && flow.time === 'Новая')
     .reduce((sum, flow) => sum + Math.abs(flow.impact), 0);
 
-  const reserve = currencyLimits[currency].reserve;
+  const activeAccess = roleAccess[role];
+  const reserve = limitOverrides[currency];
   const forecast = useMemo(() => {
     const cfg = scenarioConfig[scenario];
     return baseForecast.map((item, index) => {
@@ -270,6 +323,10 @@ export default function Home() {
 
   function createRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!activeAccess.canCreate) {
+      addAudit('Доступ запрещен', `${role} не может создавать заявки.`);
+      return;
+    }
     const value = Number(requestAmount) || 0;
     if (!requestTitle.trim() || value <= 0) return;
 
@@ -294,6 +351,10 @@ export default function Home() {
   }
 
   function updateFlowStatus(id: number, status: 'Согласовано' | 'Отклонено') {
+    if (!activeAccess.canApprove) {
+      addAudit('Доступ запрещен', `${role} не может согласовывать заявки.`);
+      return;
+    }
     const target = flows.find((flow) => flow.id === id);
     setFlows((current) =>
       current.map((flow) =>
@@ -331,6 +392,24 @@ export default function Home() {
     ]);
     setQuery('');
     setStatusFilter('Все');
+    setLimitOverrides({
+      KGS: currencyLimits.KGS.reserve,
+      USD: currencyLimits.USD.reserve,
+      EUR: currencyLimits.EUR.reserve,
+      CNY: currencyLimits.CNY.reserve,
+    });
+    setRole('Казначей');
+  }
+
+  function updateLimit() {
+    if (!activeAccess.canSetLimits) {
+      addAudit('Доступ запрещен', `${role} не может менять лимиты.`);
+      return;
+    }
+    const value = Number(limitDraft);
+    if (!Number.isFinite(value) || value <= 0) return;
+    setLimitOverrides((current) => ({ ...current, [currency]: value }));
+    addAudit('Изменен лимит', `${currency}: новый минимальный остаток ${value} млн.`);
   }
 
   function exportCsv() {
@@ -421,17 +500,23 @@ export default function Home() {
             <ControlPanel
               scenario={scenario}
               currency={currency}
+              role={role}
+              activeAccess={activeAccess}
               query={query}
               statusFilter={statusFilter}
               requestAmount={requestAmount}
               requestTitle={requestTitle}
+              limitDraft={limitDraft}
               setScenario={setScenario}
               setCurrency={setCurrency}
+              setRole={setRole}
               setQuery={setQuery}
               setStatusFilter={setStatusFilter}
               setRequestAmount={setRequestAmount}
               setRequestTitle={setRequestTitle}
+              setLimitDraft={setLimitDraft}
               createRequest={createRequest}
+              updateLimit={updateLimit}
             />
           </section>
 
@@ -468,7 +553,12 @@ export default function Home() {
             </TabsContent>
 
             <TabsContent value="flows">
-              <FlowsCard flows={selectedFlows} updateFlowStatus={updateFlowStatus} exportCsv={exportCsv} />
+              <FlowsCard
+                flows={selectedFlows}
+                canApprove={activeAccess.canApprove}
+                updateFlowStatus={updateFlowStatus}
+                exportCsv={exportCsv}
+              />
             </TabsContent>
 
             <TabsContent value="limits">
@@ -591,31 +681,43 @@ function Sidebar({ pendingCount }: { pendingCount: number }) {
 function ControlPanel({
   scenario,
   currency,
+  role,
+  activeAccess,
   query,
   statusFilter,
   requestAmount,
   requestTitle,
+  limitDraft,
   setScenario,
   setCurrency,
+  setRole,
   setQuery,
   setStatusFilter,
   setRequestAmount,
   setRequestTitle,
+  setLimitDraft,
   createRequest,
+  updateLimit,
 }: {
   scenario: Scenario;
   currency: Currency;
+  role: UserRole;
+  activeAccess: (typeof roleAccess)[UserRole];
   query: string;
   statusFilter: StatusFilter;
   requestAmount: string;
   requestTitle: string;
+  limitDraft: string;
   setScenario: (value: Scenario) => void;
   setCurrency: (value: Currency) => void;
+  setRole: (value: UserRole) => void;
   setQuery: (value: string) => void;
   setStatusFilter: (value: StatusFilter) => void;
   setRequestAmount: (value: string) => void;
   setRequestTitle: (value: string) => void;
+  setLimitDraft: (value: string) => void;
   createRequest: (event: FormEvent<HTMLFormElement>) => void;
+  updateLimit: () => void;
 }) {
   return (
     <Card className="shadow-[0_24px_70px_rgba(31,41,55,0.08)]">
@@ -627,6 +729,23 @@ function ControlPanel({
         <CardDescription>Меняет расчет прогноза прямо на экране.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="rounded-xl border bg-background/70 p-4">
+          <p className="text-sm font-semibold">Роль пользователя</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(Object.keys(roleAccess) as UserRole[]).map((item) => (
+              <Button
+                key={item}
+                type="button"
+                variant={role === item ? 'secondary' : 'outline'}
+                onClick={() => setRole(item)}
+              >
+                {item}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">{activeAccess.description}</p>
+        </div>
+
         <div>
           <p className="mb-2 text-sm font-medium">Сценарий</p>
           <div className="grid grid-cols-3 gap-2">
@@ -686,7 +805,10 @@ function ControlPanel({
         </div>
 
         <form onSubmit={createRequest} className="rounded-xl border bg-background/70 p-4">
-          <p className="text-sm font-semibold">Новая заявка</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold">Новая заявка</p>
+            {!activeAccess.canCreate ? <Badge variant="outline">нет доступа</Badge> : null}
+          </div>
           <div className="mt-3 space-y-3">
             <Input
               aria-label="Название заявки"
@@ -703,13 +825,33 @@ function ControlPanel({
                 onChange={(event) => setRequestAmount(event.target.value)}
                 placeholder="Сумма"
               />
-              <Button type="submit">
+              <Button type="submit" disabled={!activeAccess.canCreate}>
                 <Plus aria-hidden="true" />
                 Добавить
               </Button>
             </div>
           </div>
         </form>
+
+        <div className="rounded-xl border bg-background/70 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold">Настройка лимита</p>
+            {!activeAccess.canSetLimits ? <Badge variant="outline">только риск</Badge> : null}
+          </div>
+          <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+            <Input
+              aria-label="Минимальный лимит ликвидности"
+              type="number"
+              min="1"
+              value={limitDraft}
+              onChange={(event) => setLimitDraft(event.target.value)}
+              placeholder="Минимальный остаток"
+            />
+            <Button type="button" variant="secondary" onClick={updateLimit} disabled={!activeAccess.canSetLimits}>
+              Сохранить
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -846,10 +988,12 @@ function ForecastCard({
 
 function FlowsCard({
   flows,
+  canApprove,
   updateFlowStatus,
   exportCsv,
 }: {
   flows: Flow[];
+  canApprove: boolean;
   updateFlowStatus: (id: number, status: 'Согласовано' | 'Отклонено') => void;
   exportCsv: () => void;
 }) {
@@ -887,7 +1031,7 @@ function FlowsCard({
               </TableRow>
             ) : (
               flows.map((flow) => {
-              const canApprove = flow.status === 'На согласовании' || flow.status === 'Согласование';
+              const needsDecision = flow.status === 'На согласовании' || flow.status === 'Согласование';
               return (
                 <TableRow key={`${flow.id}-${flow.status}`}>
                   <TableCell className="text-muted-foreground">{flow.time}</TableCell>
@@ -901,13 +1045,23 @@ function FlowsCard({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {canApprove ? (
+                    {needsDecision ? (
                       <div className="flex gap-2">
-                        <Button size="sm" variant="secondary" onClick={() => updateFlowStatus(flow.id, 'Согласовано')}>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={!canApprove}
+                          onClick={() => updateFlowStatus(flow.id, 'Согласовано')}
+                        >
                           <Check aria-hidden="true" />
                           OK
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => updateFlowStatus(flow.id, 'Отклонено')}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!canApprove}
+                          onClick={() => updateFlowStatus(flow.id, 'Отклонено')}
+                        >
                           <X aria-hidden="true" />
                           Нет
                         </Button>
