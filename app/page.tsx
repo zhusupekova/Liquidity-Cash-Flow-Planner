@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   Banknote,
   Bell,
+  BookOpenCheck,
   Building2,
   CalendarDays,
   Check,
@@ -26,9 +27,12 @@ import {
   RadioTower,
   RefreshCw,
   Search,
+  ServerCog,
   ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   History,
+  UsersRound,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -195,6 +199,39 @@ const roadmap = [
   { title: 'Администрирование лимитов', body: 'Настройка лимитов по валютам, филиалам, счетам и операциям.', state: 'Bank' },
 ];
 
+const passportSections = [
+  {
+    title: 'Назначение системы',
+    icon: BookOpenCheck,
+    body: 'Автоматизированная система внутрибанковского операционного планирования и управления лимитами ликвидности для казначейства, риск-менеджмента и руководства банка.',
+  },
+  {
+    title: 'Проблема',
+    icon: AlertTriangle,
+    body: 'Ручные расчеты в Excel, позднее согласование заявок, разрозненные данные по депозитам, кредитам, валюте и межбанку приводят к риску кассовых разрывов и неэффективному использованию свободных средств.',
+  },
+  {
+    title: 'Решение',
+    icon: LineChart,
+    body: 'Единый дашборд собирает денежные потоки, рассчитывает прогноз ликвидности, контролирует лимиты, показывает алерты и поддерживает workflow заявок с аудитом действий.',
+  },
+  {
+    title: 'Пользователи',
+    icon: UsersRound,
+    body: 'Казначей, риск-менеджер, руководитель, сотрудник подразделения, аудитор и администратор системы.',
+  },
+  {
+    title: 'Архитектура',
+    icon: ServerCog,
+    body: 'Frontend на React/Vinext, Tailwind CSS и Shadcn UI; далее backend API, база данных, интеграционный слой с АБС и сервис уведомлений.',
+  },
+  {
+    title: 'Безопасность',
+    icon: ShieldCheck,
+    body: 'Ролевая модель доступа, журнал аудита, контроль лимитов, разделение прав на создание, согласование и изменение лимитов.',
+  },
+];
+
 const navItems = [
   { label: 'Позиция', icon: Gauge },
   { label: 'Потоки', icon: Activity },
@@ -208,6 +245,15 @@ const opsChecklist = [
   'Согласовать валютные заявки клиентов до 14:00',
   'Оставить резерв KGS выше минимального лимита',
   'Зафиксировать решение по overnight-размещению',
+];
+
+const presentationPlan = [
+  'Кратко объяснить проблему ручного планирования ликвидности.',
+  'Показать главный дашборд: прогноз, дефицит, лимиты, алерты.',
+  'Создать заявку и показать, как она влияет на прогноз.',
+  'Согласовать или отклонить заявку и открыть журнал аудита.',
+  'Переключить роль пользователя и показать ограничение прав.',
+  'Открыть вкладку доработок и объяснить путь до промышленной версии.',
 ];
 
 export default function Home() {
@@ -476,14 +522,14 @@ export default function Home() {
                 <div>
                   <Badge variant="outline" className="h-7 gap-2 bg-background/70">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Tailwind CSS · Shadcn UI · workflow logic
+                    Official practice project · Tailwind CSS · Shadcn UI
                   </Badge>
                   <h2 className="mt-5 max-w-2xl text-3xl font-semibold tracking-tight sm:text-5xl">
-                    Казначей видит риск и сразу принимает решение.
+                    Liquidity & Cash Flow Planner для банка.
                   </h2>
                   <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                    Заявки теперь можно согласовывать или отклонять. Это меняет очередь операций,
-                    риск-панель и прогнозный дефицит.
+                    Официальный учебный прототип системы внутрибанковского планирования ликвидности:
+                    прогноз, лимиты, заявки, роли, аудит и план промышленного внедрения.
                   </p>
 
                   <div className="mt-7 grid gap-3 sm:grid-cols-3">
@@ -535,6 +581,7 @@ export default function Home() {
           <Tabs defaultValue="forecast" className="space-y-4">
             <TabsList className="h-10 flex-wrap">
               <TabsTrigger value="forecast" className="px-4">Прогноз</TabsTrigger>
+              <TabsTrigger value="passport" className="px-4">Паспорт</TabsTrigger>
               <TabsTrigger value="flows" className="px-4">Потоки</TabsTrigger>
               <TabsTrigger value="limits" className="px-4">Лимиты</TabsTrigger>
               <TabsTrigger value="audit" className="px-4">Аудит</TabsTrigger>
@@ -550,6 +597,10 @@ export default function Home() {
                 totalInflow={totalInflow}
                 totalOutflow={totalOutflow}
               />
+            </TabsContent>
+
+            <TabsContent value="passport">
+              <ProjectPassport />
             </TabsContent>
 
             <TabsContent value="flows">
@@ -582,9 +633,9 @@ export default function Home() {
           <section className="grid gap-6 xl:grid-cols-3">
             <DecisionCard
               icon={Building2}
-              title="Что улучшено сейчас"
-              value="Workflow MVP"
-              text="Добавлены согласование, отклонение, алерты, checklist и живые счетчики."
+              title="Для презентации"
+              value="Официальный прототип"
+              text="Добавлены паспорт проекта, роли, лимиты, workflow, аудит и план доработок."
             />
             <DecisionCard
               icon={RefreshCw}
@@ -1139,6 +1190,100 @@ function RoadmapCard() {
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+function ProjectPassport() {
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Паспорт проекта</CardTitle>
+          <CardDescription>
+            Автоматизированная система внутрибанковского операционного планирования и управления
+            лимитами ликвидности.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {passportSections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <div key={section.title} className="rounded-xl border bg-background/70 p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-muted text-muted-foreground">
+                      <Icon size={20} aria-hidden="true" />
+                    </span>
+                    <p className="font-semibold">{section.title}</p>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{section.body}</p>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Функциональные модули</CardTitle>
+            <CardDescription>Что должна включать полная банковская версия системы.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {[
+              'Сбор данных из АБС, кредитного, депозитного и FX-модулей',
+              'Расчет текущей и прогнозной ликвидности по валютам',
+              'Контроль лимитов, нормативов и минимальных остатков',
+              'Заявки подразделений и маршруты согласования',
+              'Сценарное моделирование и стресс-тесты',
+              'Уведомления, эскалации и операционный checklist',
+              'Отчеты для казначейства, рисков и руководства',
+              'Журнал аудита и контроль действий пользователей',
+            ].map((item) => (
+              <div key={item} className="flex gap-3 rounded-xl border bg-background/70 p-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+                <p className="text-sm leading-5">{item}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Сценарий защиты</CardTitle>
+            <CardDescription>Короткий порядок демонстрации на практике.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {presentationPlan.map((item, index) => (
+              <div key={item} className="flex gap-3 rounded-xl border bg-background/70 p-3">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                  {index + 1}
+                </span>
+                <p className="text-sm leading-5">{item}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Технологический стек</CardTitle>
+          <CardDescription>Для презентации можно объяснять как современный web-based banking dashboard.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {['React / Vinext', 'Tailwind CSS', 'Shadcn UI', 'TypeScript'].map((item) => (
+            <div key={item} className="rounded-xl border bg-background/70 p-4">
+              <p className="font-semibold">{item}</p>
+              <p className="mt-2 text-sm leading-5 text-muted-foreground">
+                Используется в текущем интерактивном прототипе.
+              </p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
