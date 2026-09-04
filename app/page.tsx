@@ -10,6 +10,7 @@ import {
   Bell,
   Building2,
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
@@ -26,6 +27,7 @@ import {
   RefreshCw,
   ShieldAlert,
   SlidersHorizontal,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -53,6 +55,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 type Scenario = 'base' | 'stress' | 'optimistic';
 type Currency = 'KGS' | 'USD' | 'EUR' | 'CNY';
 type Tone = 'good' | 'warning' | 'critical' | 'neutral';
+type FlowStatus = 'Подтверждено' | 'В прогнозе' | 'Согласование' | 'Рекомендация' | 'На согласовании' | 'Согласовано' | 'Отклонено';
+
+type Flow = {
+  id: number;
+  time: string;
+  source: string;
+  owner: string;
+  type: string;
+  amount: string;
+  currency: Currency;
+  impact: number;
+  status: FlowStatus;
+  tone: Tone;
+};
 
 const scenarioConfig: Record<Scenario, { label: string; outflowFactor: number; inflowFactor: number }> = {
   base: { label: 'Базовый', outflowFactor: 1, inflowFactor: 1 },
@@ -60,11 +76,11 @@ const scenarioConfig: Record<Scenario, { label: string; outflowFactor: number; i
   optimistic: { label: 'Оптимистичный', outflowFactor: 0.92, inflowFactor: 1.08 },
 };
 
-const currencyLimits: Record<Currency, { reserve: number; unit: string; balance: number }> = {
-  KGS: { reserve: 900, unit: 'млн KGS', balance: 1420 },
-  USD: { reserve: 8, unit: 'млн USD', balance: 12.4 },
-  EUR: { reserve: 2.4, unit: 'млн EUR', balance: 3.1 },
-  CNY: { reserve: 7, unit: 'млн CNY', balance: 9.8 },
+const currencyLimits: Record<Currency, { reserve: number; balance: number }> = {
+  KGS: { reserve: 900, balance: 1420 },
+  USD: { reserve: 8, balance: 12.4 },
+  EUR: { reserve: 2.4, balance: 3.1 },
+  CNY: { reserve: 7, balance: 9.8 },
 };
 
 const baseForecast = [
@@ -77,58 +93,68 @@ const baseForecast = [
   { day: '10.09', label: 'Чт', inflow: 910, outflow: 640, balance: 1483 },
 ];
 
-const initialFlows = [
+const initialFlows: Flow[] = [
   {
+    id: 1,
     time: '09:30',
     source: 'Погашение кредитов МСБ',
     owner: 'Кредитный блок',
     type: 'Поступление',
     amount: '+245 млн KGS',
+    currency: 'KGS',
     impact: 245,
     status: 'Подтверждено',
-    tone: 'good' as Tone,
+    tone: 'good',
   },
   {
+    id: 2,
     time: '11:00',
     source: 'Возврат депозитов физлиц',
     owner: 'Депозитный отдел',
     type: 'Расход',
     amount: '-318 млн KGS',
+    currency: 'KGS',
     impact: -318,
     status: 'В прогнозе',
-    tone: 'warning' as Tone,
+    tone: 'warning',
   },
   {
+    id: 3,
     time: '13:20',
     source: 'Покупка USD для клиента',
     owner: 'Валютные операции',
     type: 'FX',
     amount: '-2.1 млн USD',
+    currency: 'USD',
     impact: -186,
     status: 'Согласование',
-    tone: 'critical' as Tone,
+    tone: 'critical',
   },
   {
+    id: 4,
     time: '15:00',
     source: 'Межбанк overnight',
     owner: 'Казначейство',
     type: 'Размещение',
     amount: '-400 млн KGS',
+    currency: 'KGS',
     impact: -400,
     status: 'Рекомендация',
-    tone: 'neutral' as Tone,
+    tone: 'neutral',
   },
 ];
 
 const roadmap = [
-  { title: 'Роли и доступы', body: 'Казначей, риск-менеджер, руководитель, филиал, аудитор.', state: 'MVP' },
-  { title: 'Заявки подразделений', body: 'Создание, согласование, исполнение, отмена, комментарии.', state: 'Next' },
-  { title: 'Интеграции с АБС', body: 'Остатки, проводки, корр. счета, депозиты, кредиты, FX.', state: 'Core' },
+  { title: 'Роли и доступы', body: 'RBAC: казначей, риск, руководитель, филиал, аудитор.', state: 'Critical' },
+  { title: 'Сохранение заявок', body: 'База данных, история статусов, комментарии и вложения.', state: 'Critical' },
+  { title: 'Маршруты согласования', body: 'Правила: сумма, валюта, тип операции, лимит, подразделение.', state: 'Critical' },
+  { title: 'Интеграции с АБС', body: 'Остатки, проводки, корр. счета, депозиты, кредиты и FX.', state: 'Core' },
   { title: 'Расчетный движок', body: 'Свободный ресурс, кассовый разрыв, лимиты, валютная позиция.', state: 'Core' },
-  { title: 'Сценарии и стресс-тесты', body: 'Отток депозитов, задержка поступлений, валютный спрос.', state: 'Risk' },
-  { title: 'Уведомления', body: 'Email, SMS, внутренние уведомления, критические алерты.', state: 'Ops' },
-  { title: 'Отчетность', body: 'План-факт, лимиты, ликвидность, межбанк, экспорт Excel/PDF.', state: 'Reports' },
-  { title: 'Аудит и безопасность', body: 'Журнал действий, история расчетов, шифрование, approvals.', state: 'Bank' },
+  { title: 'Стресс-тесты', body: 'Отток депозитов, задержка поступлений, спрос на валюту.', state: 'Risk' },
+  { title: 'Уведомления', body: 'Email, SMS, push внутри системы, критические эскалации.', state: 'Ops' },
+  { title: 'Отчетность', body: 'План-факт, лимиты, ликвидность, межбанк, Excel/PDF.', state: 'Reports' },
+  { title: 'Аудит и безопасность', body: 'Журнал действий, immutable history, шифрование, approvals.', state: 'Bank' },
+  { title: 'Администрирование лимитов', body: 'Настройка лимитов по валютам, филиалам, счетам и операциям.', state: 'Bank' },
 ];
 
 const navItems = [
@@ -139,13 +165,27 @@ const navItems = [
   { label: 'Доработки', icon: Layers3 },
 ];
 
+const opsChecklist = [
+  'Подтвердить крупные депозитные оттоки до 12:30',
+  'Согласовать валютные заявки клиентов до 14:00',
+  'Оставить резерв KGS выше минимального лимита',
+  'Зафиксировать решение по overnight-размещению',
+];
+
 export default function Home() {
   const [scenario, setScenario] = useState<Scenario>('base');
   const [currency, setCurrency] = useState<Currency>('KGS');
-  const [manualOutflow, setManualOutflow] = useState(0);
   const [requestAmount, setRequestAmount] = useState('120');
   const [requestTitle, setRequestTitle] = useState('Крупный клиентский платеж');
   const [flows, setFlows] = useState(initialFlows);
+
+  const selectedFlows = flows.filter((flow) => flow.currency === currency || currency === 'KGS');
+  const pendingCount = flows.filter((flow) => flow.status === 'На согласовании' || flow.status === 'Согласование').length;
+  const approvedCount = flows.filter((flow) => flow.status === 'Согласовано' || flow.status === 'Подтверждено').length;
+  const rejectedCount = flows.filter((flow) => flow.status === 'Отклонено').length;
+  const manualOutflow = flows
+    .filter((flow) => flow.status !== 'Отклонено' && flow.impact < 0 && flow.time === 'Новая')
+    .reduce((sum, flow) => sum + Math.abs(flow.impact), 0);
 
   const reserve = currencyLimits[currency].reserve;
   const forecast = useMemo(() => {
@@ -169,6 +209,7 @@ export default function Home() {
   const totalInflow = forecast.reduce((sum, item) => sum + item.inflow, 0);
   const totalOutflow = forecast.reduce((sum, item) => sum + item.outflow, 0);
   const maxBalance = Math.max(...forecast.map((item) => item.balance), reserve);
+  const alertCount = Number(deficit > 0) + Number(pendingCount > 0) + Number(manualOutflow > 250);
 
   function createRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -177,88 +218,41 @@ export default function Home() {
 
     setFlows((current) => [
       {
+        id: Date.now(),
         time: 'Новая',
         source: requestTitle.trim(),
         owner: 'Подразделение',
         type: 'Заявка',
         amount: `-${value} млн ${currency}`,
+        currency,
         impact: -value,
         status: 'На согласовании',
         tone: value > 250 ? 'critical' : 'warning',
       },
       ...current,
     ]);
-    setManualOutflow((current) => current + value);
     setRequestTitle('');
     setRequestAmount('120');
+  }
+
+  function updateFlowStatus(id: number, status: 'Согласовано' | 'Отклонено') {
+    setFlows((current) =>
+      current.map((flow) =>
+        flow.id === id
+          ? {
+              ...flow,
+              status,
+              tone: status === 'Согласовано' ? 'good' : 'neutral',
+            }
+          : flow,
+      ),
+    );
   }
 
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <AnimatedBackdrop />
-
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[280px] border-r border-white/10 bg-sidebar px-4 py-5 text-sidebar-foreground lg:block">
-        <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_14px_34px_rgba(20,184,166,0.25)]">
-            <Landmark size={23} aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold">Liquidity Planner</p>
-            <p className="text-xs text-white/55">Treasury command center</p>
-          </div>
-        </div>
-
-        <nav className="mt-8 space-y-1" aria-label="Основные разделы">
-          {navItems.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <a
-                href={`#${item.label.toLowerCase()}`}
-                key={item.label}
-                className={`group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
-                  index === 0
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-inner'
-                    : 'text-white/62 hover:bg-sidebar-accent hover:text-white'
-                }`}
-              >
-                <Icon size={18} aria-hidden="true" />
-                {item.label}
-                {index === 0 ? <ChevronRight className="ml-auto" size={16} aria-hidden="true" /> : null}
-              </a>
-            );
-          })}
-        </nav>
-
-        <Card className="mt-7 border-white/10 bg-white/[0.06] text-white shadow-none ring-white/10">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2">
-                <RadioTower size={18} className="text-teal-300" aria-hidden="true" />
-                Live feed
-              </span>
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-300 opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-teal-300" />
-              </span>
-            </CardTitle>
-            <CardDescription className="text-white/58">
-              Синхронизация с АБС, депозитами и FX: 22 секунды назад.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card className="absolute bottom-5 left-4 right-4 border-white/10 bg-white/[0.06] text-white shadow-none ring-white/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <LockKeyhole size={17} className="text-amber-300" aria-hidden="true" />
-              Банковский контур
-            </CardTitle>
-            <CardDescription className="text-white/55">
-              Это интерактивный прототип. Следующий шаг: хранение заявок и роли.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </aside>
+      <Sidebar pendingCount={pendingCount} />
 
       <section className="relative z-10 lg:pl-[280px]">
         <header className="border-b bg-background/75 px-5 py-4 backdrop-blur-xl sm:px-8">
@@ -278,7 +272,7 @@ export default function Home() {
               </Button>
               <Button size="lg" className="shadow-[0_14px_30px_rgba(15,118,110,0.25)]">
                 <Bell aria-hidden="true" />
-                Проверить риски
+                {alertCount} алерта
               </Button>
             </div>
           </div>
@@ -292,20 +286,20 @@ export default function Home() {
                 <div>
                   <Badge variant="outline" className="h-7 gap-2 bg-background/70">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Tailwind CSS · Shadcn UI · Aceternity-style motion
+                    Tailwind CSS · Shadcn UI · workflow logic
                   </Badge>
                   <h2 className="mt-5 max-w-2xl text-3xl font-semibold tracking-tight sm:text-5xl">
-                    Не просто дашборд, а рабочее место казначея.
+                    Казначей видит риск и сразу принимает решение.
                   </h2>
                   <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                    Сценарии, фильтры, заявки и лимиты уже связаны: изменение заявки сразу влияет на
-                    прогнозный остаток и риск дефицита.
+                    Заявки теперь можно согласовывать или отклонять. Это меняет очередь операций,
+                    риск-панель и прогнозный дефицит.
                   </p>
 
                   <div className="mt-7 grid gap-3 sm:grid-cols-3">
                     <MiniSignal label="Мин. остаток" value={`${minBalance} млн`} trend={deficit > 0 ? 'дефицит' : 'OK'} />
                     <MiniSignal label="День риска" value={riskDay} trend={scenarioConfig[scenario].label} />
-                    <MiniSignal label="Свободно" value={`${Math.max(0, minBalance - reserve)} млн`} trend={currency} />
+                    <MiniSignal label="Очередь" value={`${pendingCount} заявок`} trend={`${approvedCount} согласовано`} />
                   </div>
                 </div>
 
@@ -313,85 +307,33 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-[0_24px_70px_rgba(31,41,55,0.08)]">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Панель управления</span>
-                  <SlidersHorizontal size={20} className="text-muted-foreground" aria-hidden="true" />
-                </CardTitle>
-                <CardDescription>Меняет расчет прогноза прямо на экране.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div>
-                  <p className="mb-2 text-sm font-medium">Сценарий</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {Object.entries(scenarioConfig).map(([key, config]) => (
-                      <Button
-                        key={key}
-                        type="button"
-                        variant={scenario === key ? 'default' : 'outline'}
-                        onClick={() => setScenario(key as Scenario)}
-                      >
-                        {config.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-sm font-medium">Валюта</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {Object.keys(currencyLimits).map((code) => (
-                      <Button
-                        key={code}
-                        type="button"
-                        variant={currency === code ? 'secondary' : 'outline'}
-                        onClick={() => setCurrency(code as Currency)}
-                      >
-                        {code}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <form onSubmit={createRequest} className="rounded-xl border bg-background/70 p-4">
-                  <p className="text-sm font-semibold">Новая заявка</p>
-                  <div className="mt-3 space-y-3">
-                    <Input
-                      aria-label="Название заявки"
-                      value={requestTitle}
-                      onChange={(event) => setRequestTitle(event.target.value)}
-                      placeholder="Название операции"
-                    />
-                    <div className="grid grid-cols-[1fr_auto] gap-2">
-                      <Input
-                        aria-label="Сумма заявки"
-                        type="number"
-                        min="1"
-                        value={requestAmount}
-                        onChange={(event) => setRequestAmount(event.target.value)}
-                        placeholder="Сумма"
-                      />
-                      <Button type="submit">
-                        <Plus aria-hidden="true" />
-                        Добавить
-                      </Button>
-                    </div>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+            <ControlPanel
+              scenario={scenario}
+              currency={currency}
+              requestAmount={requestAmount}
+              requestTitle={requestTitle}
+              setScenario={setScenario}
+              setCurrency={setCurrency}
+              setRequestAmount={setRequestAmount}
+              setRequestTitle={setRequestTitle}
+              createRequest={createRequest}
+            />
           </section>
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Ключевые показатели">
             <MetricCard title="Свободная ликвидность" value={`${Math.max(0, minBalance - reserve)} млн`} detail={currency} state={deficit > 0 ? 'critical' : 'good'} icon={Banknote} />
             <MetricCard title="Прогнозный дефицит" value={`${deficit} млн`} detail={deficit > 0 ? `риск ${riskDay}` : 'лимит не нарушен'} state={deficit > 0 ? 'critical' : 'good'} icon={AlertTriangle} />
-            <MetricCard title="Поступления 7 дней" value={`${totalInflow} млн`} detail="по выбранному сценарию" state="good" icon={ArrowUpRight} />
-            <MetricCard title="Списания 7 дней" value={`${totalOutflow} млн`} detail={`${manualOutflow} млн ручных заявок`} state={manualOutflow > 250 ? 'warning' : 'neutral'} icon={ArrowDownRight} />
+            <MetricCard title="На согласовании" value={`${pendingCount}`} detail={`${approvedCount} согласовано · ${rejectedCount} отклонено`} state={pendingCount > 0 ? 'warning' : 'good'} icon={FileCheck2} />
+            <MetricCard title="Ручные заявки" value={`${manualOutflow} млн`} detail="влияют на прогноз сегодня" state={manualOutflow > 250 ? 'warning' : 'neutral'} icon={ArrowDownRight} />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <AlertCenter deficit={deficit} pendingCount={pendingCount} manualOutflow={manualOutflow} riskDay={riskDay} />
+            <Checklist />
           </section>
 
           <Tabs defaultValue="forecast" className="space-y-4">
-            <TabsList className="h-10">
+            <TabsList className="h-10 flex-wrap">
               <TabsTrigger value="forecast" className="px-4">Прогноз</TabsTrigger>
               <TabsTrigger value="flows" className="px-4">Потоки</TabsTrigger>
               <TabsTrigger value="limits" className="px-4">Лимиты</TabsTrigger>
@@ -399,100 +341,18 @@ export default function Home() {
             </TabsList>
 
             <TabsContent value="forecast">
-              <Card>
-                <CardHeader>
-                  <CardTitle>7-дневный прогноз ликвидности</CardTitle>
-                  <CardDescription>Бары пересчитываются при смене сценария или добавлении заявки.</CardDescription>
-                  <CardAction>
-                    <Badge variant={deficit > 0 ? 'destructive' : 'secondary'}>
-                      {deficit > 0 ? 'Action required' : 'OK'}
-                    </Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid h-80 grid-cols-7 items-end gap-3 border-b border-l px-3 pb-4">
-                    {forecast.map((item, index) => (
-                      <div key={item.day} className="flex h-full flex-col justify-end gap-2">
-                        <div className="relative flex flex-1 items-end">
-                          <span
-                            className="absolute inset-x-0 border-t border-dashed border-red-400/70"
-                            style={{ bottom: `${(reserve / maxBalance) * 100}%` }}
-                          />
-                          <div
-                            className={`forecast-bar w-full rounded-t-lg ${
-                              item.balance < reserve
-                                ? 'bg-red-500'
-                                : item.balance < reserve + 250
-                                  ? 'bg-amber-500'
-                                  : 'bg-primary'
-                            }`}
-                            style={{
-                              height: `${(item.balance / maxBalance) * 100}%`,
-                              animationDelay: `${index * 80}ms`,
-                            }}
-                            title={`${item.balance} млн`}
-                          />
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs font-semibold">{item.label}</p>
-                          <p className="text-[11px] text-muted-foreground">{item.day}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <FlowSummary label="Поступления" value={`+${totalInflow} млн`} tone="positive" />
-                    <FlowSummary label="Списания" value={`-${totalOutflow} млн`} tone="negative" />
-                    <FlowSummary label="Чистый поток" value={`${totalInflow - totalOutflow} млн`} tone="neutral" />
-                  </div>
-                </CardContent>
-              </Card>
+              <ForecastCard
+                forecast={forecast}
+                maxBalance={maxBalance}
+                reserve={reserve}
+                deficit={deficit}
+                totalInflow={totalInflow}
+                totalOutflow={totalOutflow}
+              />
             </TabsContent>
 
             <TabsContent value="flows">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Операционный поток</CardTitle>
-                  <CardDescription>Заявки, подтвержденные потоки и операции, влияющие на позицию.</CardDescription>
-                  <CardAction>
-                    <Button variant="outline">
-                      <Download aria-hidden="true" />
-                      Экспорт
-                    </Button>
-                  </CardAction>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Время</TableHead>
-                        <TableHead>Операция</TableHead>
-                        <TableHead>Владелец</TableHead>
-                        <TableHead>Тип</TableHead>
-                        <TableHead>Сумма</TableHead>
-                        <TableHead>Статус</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {flows.map((flow) => (
-                        <TableRow key={`${flow.time}-${flow.source}-${flow.amount}`}>
-                          <TableCell className="text-muted-foreground">{flow.time}</TableCell>
-                          <TableCell className="font-medium">{flow.source}</TableCell>
-                          <TableCell className="text-muted-foreground">{flow.owner}</TableCell>
-                          <TableCell>{flow.type}</TableCell>
-                          <TableCell className="font-semibold">{flow.amount}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={statusClass(flow.tone)}>
-                              {flow.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <FlowsCard flows={selectedFlows} updateFlowStatus={updateFlowStatus} />
             </TabsContent>
 
             <TabsContent value="limits">
@@ -500,47 +360,27 @@ export default function Home() {
                 <LimitCard name="Минимальный остаток" used={Math.min(100, Math.round((reserve / Math.max(minBalance, 1)) * 100))} value={`${minBalance} / ${reserve} млн`} state={deficit > 0 ? 'critical' : 'good'} />
                 <LimitCard name="Межбанк overnight" used={72} value="1.8 / 2.5 млрд" state="warning" />
                 <LimitCard name="Корреспондентский счет USD" used={61} value="12.4 / 20 млн" state="good" />
-                <LimitCard name="Крупные платежи до 17:00" used={48} value={`${flows.length} операций`} state="good" />
+                <LimitCard name="Крупные платежи до 17:00" used={Math.min(100, flows.length * 9)} value={`${flows.length} операций`} state={flows.length > 8 ? 'warning' : 'good'} />
               </div>
             </TabsContent>
 
             <TabsContent value="roadmap">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Все необходимые доработки до банковского уровня</CardTitle>
-                  <CardDescription>Это полный backlog системы, который будем закрывать постепенно.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {roadmap.map((item) => (
-                      <div key={item.title} className="rounded-xl border bg-background/70 p-4 transition hover:-translate-y-0.5 hover:shadow-md">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold">{item.title}</p>
-                            <p className="mt-2 text-sm leading-5 text-muted-foreground">{item.body}</p>
-                          </div>
-                          <Badge variant="secondary">{item.state}</Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <RoadmapCard />
             </TabsContent>
           </Tabs>
 
           <section className="grid gap-6 xl:grid-cols-3">
             <DecisionCard
               icon={Building2}
-              title="Что есть сейчас"
-              value="Интерактивный MVP"
-              text="Сценарии, ручная заявка, пересчет прогноза, таблица операций и лимиты."
+              title="Что улучшено сейчас"
+              value="Workflow MVP"
+              text="Добавлены согласование, отклонение, алерты, checklist и живые счетчики."
             />
             <DecisionCard
               icon={RefreshCw}
               title="Следующий этап"
-              value="Заявки + роли"
-              text="Сделать сохранение заявок, маршруты согласования и права пользователей."
+              value="База + роли"
+              text="Заявки должны сохраняться, а действия должны зависеть от роли пользователя."
             />
             <DecisionCard
               icon={CheckCircle2}
@@ -552,6 +392,408 @@ export default function Home() {
         </div>
       </section>
     </main>
+  );
+}
+
+function Sidebar({ pendingCount }: { pendingCount: number }) {
+  return (
+    <aside className="fixed inset-y-0 left-0 z-20 hidden w-[280px] border-r border-white/10 bg-sidebar px-4 py-5 text-sidebar-foreground lg:block">
+      <div className="flex items-center gap-3">
+        <div className="grid h-11 w-11 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_14px_34px_rgba(20,184,166,0.25)]">
+          <Landmark size={23} aria-hidden="true" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold">Liquidity Planner</p>
+          <p className="text-xs text-white/55">Treasury command center</p>
+        </div>
+      </div>
+
+      <nav className="mt-8 space-y-1" aria-label="Основные разделы">
+        {navItems.map((item, index) => {
+          const Icon = item.icon;
+          return (
+            <a
+              href={`#${item.label.toLowerCase()}`}
+              key={item.label}
+              className={`group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
+                index === 0
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-inner'
+                  : 'text-white/62 hover:bg-sidebar-accent hover:text-white'
+              }`}
+            >
+              <Icon size={18} aria-hidden="true" />
+              {item.label}
+              {item.label === 'Заявки' ? (
+                <span className="ml-auto rounded-full bg-amber-300 px-2 py-0.5 text-[11px] font-semibold text-slate-900">
+                  {pendingCount}
+                </span>
+              ) : index === 0 ? (
+                <ChevronRight className="ml-auto" size={16} aria-hidden="true" />
+              ) : null}
+            </a>
+          );
+        })}
+      </nav>
+
+      <Card className="mt-7 border-white/10 bg-white/[0.06] text-white shadow-none ring-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2">
+              <RadioTower size={18} className="text-teal-300" aria-hidden="true" />
+              Live feed
+            </span>
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-300 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-teal-300" />
+            </span>
+          </CardTitle>
+          <CardDescription className="text-white/58">
+            Синхронизация с АБС, депозитами и FX: 22 секунды назад.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <Card className="absolute bottom-5 left-4 right-4 border-white/10 bg-white/[0.06] text-white shadow-none ring-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <LockKeyhole size={17} className="text-amber-300" aria-hidden="true" />
+            Банковский контур
+          </CardTitle>
+          <CardDescription className="text-white/55">
+            Прототип без базы. Следующий шаг: хранение заявок и роли.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    </aside>
+  );
+}
+
+function ControlPanel({
+  scenario,
+  currency,
+  requestAmount,
+  requestTitle,
+  setScenario,
+  setCurrency,
+  setRequestAmount,
+  setRequestTitle,
+  createRequest,
+}: {
+  scenario: Scenario;
+  currency: Currency;
+  requestAmount: string;
+  requestTitle: string;
+  setScenario: (value: Scenario) => void;
+  setCurrency: (value: Currency) => void;
+  setRequestAmount: (value: string) => void;
+  setRequestTitle: (value: string) => void;
+  createRequest: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <Card className="shadow-[0_24px_70px_rgba(31,41,55,0.08)]">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span>Панель управления</span>
+          <SlidersHorizontal size={20} className="text-muted-foreground" aria-hidden="true" />
+        </CardTitle>
+        <CardDescription>Меняет расчет прогноза прямо на экране.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div>
+          <p className="mb-2 text-sm font-medium">Сценарий</p>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(scenarioConfig).map(([key, config]) => (
+              <Button
+                key={key}
+                type="button"
+                variant={scenario === key ? 'default' : 'outline'}
+                onClick={() => setScenario(key as Scenario)}
+              >
+                {config.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-medium">Валюта</p>
+          <div className="grid grid-cols-4 gap-2">
+            {Object.keys(currencyLimits).map((code) => (
+              <Button
+                key={code}
+                type="button"
+                variant={currency === code ? 'secondary' : 'outline'}
+                onClick={() => setCurrency(code as Currency)}
+              >
+                {code}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <form onSubmit={createRequest} className="rounded-xl border bg-background/70 p-4">
+          <p className="text-sm font-semibold">Новая заявка</p>
+          <div className="mt-3 space-y-3">
+            <Input
+              aria-label="Название заявки"
+              value={requestTitle}
+              onChange={(event) => setRequestTitle(event.target.value)}
+              placeholder="Название операции"
+            />
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Input
+                aria-label="Сумма заявки"
+                type="number"
+                min="1"
+                value={requestAmount}
+                onChange={(event) => setRequestAmount(event.target.value)}
+                placeholder="Сумма"
+              />
+              <Button type="submit">
+                <Plus aria-hidden="true" />
+                Добавить
+              </Button>
+            </div>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AlertCenter({
+  deficit,
+  pendingCount,
+  manualOutflow,
+  riskDay,
+}: {
+  deficit: number;
+  pendingCount: number;
+  manualOutflow: number;
+  riskDay: string;
+}) {
+  const alerts = [
+    deficit > 0
+      ? { title: 'Нарушение минимального остатка', body: `Дефицит ${deficit} млн ожидается ${riskDay}.`, tone: 'critical' as Tone }
+      : { title: 'Лимит ликвидности в норме', body: 'Минимальный остаток не нарушен в выбранном сценарии.', tone: 'good' as Tone },
+    pendingCount > 0
+      ? { title: 'Есть заявки без решения', body: `${pendingCount} операции требуют согласования или отклонения.`, tone: 'warning' as Tone }
+      : { title: 'Очередь согласования чистая', body: 'Нет заявок, ожидающих решения казначейства.', tone: 'good' as Tone },
+    manualOutflow > 250
+      ? { title: 'Ручные заявки давят на прогноз', body: `${manualOutflow} млн добавлено вручную в сегодняшний отток.`, tone: 'warning' as Tone }
+      : { title: 'Ручная нагрузка умеренная', body: 'Новые заявки пока не создают заметного давления.', tone: 'neutral' as Tone },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Alert center</CardTitle>
+        <CardDescription>Автоматические сигналы, которые должен видеть казначей.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-3">
+        {alerts.map((alert) => (
+          <div key={alert.title} className="rounded-xl border bg-background/70 p-4">
+            <Badge variant="outline" className={statusClass(alert.tone)}>
+              {alert.tone === 'critical' ? 'Critical' : alert.tone === 'warning' ? 'Watch' : 'OK'}
+            </Badge>
+            <p className="mt-3 font-semibold">{alert.title}</p>
+            <p className="mt-2 text-sm leading-5 text-muted-foreground">{alert.body}</p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Checklist() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Операционный checklist</CardTitle>
+        <CardDescription>Что должно быть закрыто до конца дня.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {opsChecklist.map((item, index) => (
+          <div key={item} className="flex items-start gap-3 rounded-xl border bg-background/70 p-3">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+              {index + 1}
+            </span>
+            <p className="text-sm leading-5">{item}</p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ForecastCard({
+  forecast,
+  maxBalance,
+  reserve,
+  deficit,
+  totalInflow,
+  totalOutflow,
+}: {
+  forecast: Array<{ day: string; label: string; balance: number }>;
+  maxBalance: number;
+  reserve: number;
+  deficit: number;
+  totalInflow: number;
+  totalOutflow: number;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>7-дневный прогноз ликвидности</CardTitle>
+        <CardDescription>Бары пересчитываются при смене сценария или добавлении заявки.</CardDescription>
+        <CardAction>
+          <Badge variant={deficit > 0 ? 'destructive' : 'secondary'}>
+            {deficit > 0 ? 'Action required' : 'OK'}
+          </Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className="grid h-80 grid-cols-7 items-end gap-3 border-b border-l px-3 pb-4">
+          {forecast.map((item, index) => (
+            <div key={item.day} className="flex h-full flex-col justify-end gap-2">
+              <div className="relative flex flex-1 items-end">
+                <span
+                  className="absolute inset-x-0 border-t border-dashed border-red-400/70"
+                  style={{ bottom: `${(reserve / maxBalance) * 100}%` }}
+                />
+                <div
+                  className={`forecast-bar w-full rounded-t-lg ${
+                    item.balance < reserve ? 'bg-red-500' : item.balance < reserve + 250 ? 'bg-amber-500' : 'bg-primary'
+                  }`}
+                  style={{
+                    height: `${(item.balance / maxBalance) * 100}%`,
+                    animationDelay: `${index * 80}ms`,
+                  }}
+                  title={`${item.balance} млн`}
+                />
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-semibold">{item.label}</p>
+                <p className="text-[11px] text-muted-foreground">{item.day}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <FlowSummary label="Поступления" value={`+${totalInflow} млн`} tone="positive" />
+          <FlowSummary label="Списания" value={`-${totalOutflow} млн`} tone="negative" />
+          <FlowSummary label="Чистый поток" value={`${totalInflow - totalOutflow} млн`} tone="neutral" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FlowsCard({
+  flows,
+  updateFlowStatus,
+}: {
+  flows: Flow[];
+  updateFlowStatus: (id: number, status: 'Согласовано' | 'Отклонено') => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Операционный поток и согласование</CardTitle>
+        <CardDescription>Заявки можно согласовать или отклонить. Отклоненные не давят на прогноз.</CardDescription>
+        <CardAction>
+          <Button variant="outline">
+            <Download aria-hidden="true" />
+            Экспорт
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Время</TableHead>
+              <TableHead>Операция</TableHead>
+              <TableHead>Владелец</TableHead>
+              <TableHead>Тип</TableHead>
+              <TableHead>Сумма</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Решение</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {flows.map((flow) => {
+              const canApprove = flow.status === 'На согласовании' || flow.status === 'Согласование';
+              return (
+                <TableRow key={`${flow.id}-${flow.status}`}>
+                  <TableCell className="text-muted-foreground">{flow.time}</TableCell>
+                  <TableCell className="font-medium">{flow.source}</TableCell>
+                  <TableCell className="text-muted-foreground">{flow.owner}</TableCell>
+                  <TableCell>{flow.type}</TableCell>
+                  <TableCell className="font-semibold">{flow.amount}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={statusClass(flow.tone)}>
+                      {flow.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {canApprove ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => updateFlowStatus(flow.id, 'Согласовано')}>
+                          <Check aria-hidden="true" />
+                          OK
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => updateFlowStatus(flow.id, 'Отклонено')}>
+                          <X aria-hidden="true" />
+                          Нет
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Решение не требуется</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RoadmapCard() {
+  const groups = ['Critical', 'Core', 'Risk', 'Ops', 'Reports', 'Bank'];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Что еще нужно улучшить до реальной банковской системы</CardTitle>
+        <CardDescription>Полный backlog по приоритетам. Critical и Core закрываются первыми.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {groups.map((group) => (
+          <div key={group}>
+            <div className="mb-2 flex items-center gap-2">
+              <Badge variant={group === 'Critical' ? 'destructive' : 'secondary'}>{group}</Badge>
+              <span className="text-sm text-muted-foreground">
+                {roadmap.filter((item) => item.state === group).length} задач
+              </span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {roadmap
+                .filter((item) => item.state === group)
+                .map((item) => (
+                  <div key={item.title} className="rounded-xl border bg-background/70 p-4 transition hover:-translate-y-0.5 hover:shadow-md">
+                    <p className="font-semibold">{item.title}</p>
+                    <p className="mt-2 text-sm leading-5 text-muted-foreground">{item.body}</p>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
