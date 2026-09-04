@@ -174,6 +174,16 @@ body {
   }
 }
 
+@keyframes drift-spot {
+  0%,
+  100% {
+    transform: translate3d(-18px, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(32px, 26px, 0) scale(1.15);
+  }
+}
+
 .cash-line {
   stroke-dasharray: 420;
   animation: draw-cash-line 1.8s ease-out both;
@@ -195,6 +205,10 @@ body {
 
 .limit-fill {
   animation: grow-up 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.moving-spot {
+  animation: drift-spot 9s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
