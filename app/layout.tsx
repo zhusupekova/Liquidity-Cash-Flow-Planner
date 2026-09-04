@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Liquidity & Cash Flow Planner',
+  title: 'Планировщик ликвидности и денежных потоков',
   description:
     'Внутрибанковский дашборд для планирования ликвидности, денежных потоков и лимитов казначейства.',
 };

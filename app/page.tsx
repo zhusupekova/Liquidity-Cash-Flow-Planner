@@ -165,7 +165,7 @@ const initialFlows: Flow[] = [
     time: '13:20',
     source: 'Покупка USD для клиента',
     owner: 'Валютные операции',
-    type: 'FX',
+    type: 'Валюта',
     amount: '-2.1 млн USD',
     currency: 'USD',
     impact: -186,
@@ -187,16 +187,16 @@ const initialFlows: Flow[] = [
 ];
 
 const roadmap = [
-  { title: 'Роли и доступы', body: 'RBAC: казначей, риск, руководитель, филиал, аудитор.', state: 'Critical' },
-  { title: 'Сохранение заявок', body: 'База данных, история статусов, комментарии и вложения.', state: 'Critical' },
-  { title: 'Маршруты согласования', body: 'Правила: сумма, валюта, тип операции, лимит, подразделение.', state: 'Critical' },
-  { title: 'Интеграции с АБС', body: 'Остатки, проводки, корр. счета, депозиты, кредиты и FX.', state: 'Core' },
-  { title: 'Расчетный движок', body: 'Свободный ресурс, кассовый разрыв, лимиты, валютная позиция.', state: 'Core' },
-  { title: 'Стресс-тесты', body: 'Отток депозитов, задержка поступлений, спрос на валюту.', state: 'Risk' },
-  { title: 'Уведомления', body: 'Email, SMS, push внутри системы, критические эскалации.', state: 'Ops' },
-  { title: 'Отчетность', body: 'План-факт, лимиты, ликвидность, межбанк, Excel/PDF.', state: 'Reports' },
-  { title: 'Аудит и безопасность', body: 'Журнал действий, immutable history, шифрование, approvals.', state: 'Bank' },
-  { title: 'Администрирование лимитов', body: 'Настройка лимитов по валютам, филиалам, счетам и операциям.', state: 'Bank' },
+  { title: 'Роли и доступы', body: 'Ролевая модель: казначей, риск-менеджер, руководитель, филиал, аудитор.', state: 'Критично' },
+  { title: 'Сохранение заявок', body: 'База данных, история статусов, комментарии и вложения.', state: 'Критично' },
+  { title: 'Маршруты согласования', body: 'Правила: сумма, валюта, тип операции, лимит, подразделение.', state: 'Критично' },
+  { title: 'Интеграции с АБС', body: 'Остатки, проводки, корреспондентские счета, депозиты, кредиты и валютные операции.', state: 'Ядро' },
+  { title: 'Расчетный движок', body: 'Свободный ресурс, кассовый разрыв, лимиты, валютная позиция.', state: 'Ядро' },
+  { title: 'Стресс-тесты', body: 'Отток депозитов, задержка поступлений, спрос на валюту.', state: 'Риски' },
+  { title: 'Уведомления', body: 'Электронная почта, СМС, уведомления внутри системы, критические эскалации.', state: 'Операции' },
+  { title: 'Отчетность', body: 'План-факт, лимиты, ликвидность, межбанк, экспорт в Excel и PDF.', state: 'Отчеты' },
+  { title: 'Аудит и безопасность', body: 'Журнал действий, неизменяемая история, шифрование, согласования.', state: 'Банк' },
+  { title: 'Администрирование лимитов', body: 'Настройка лимитов по валютам, филиалам, счетам и операциям.', state: 'Банк' },
 ];
 
 const passportSections = [
@@ -213,7 +213,7 @@ const passportSections = [
   {
     title: 'Решение',
     icon: LineChart,
-    body: 'Единый дашборд собирает денежные потоки, рассчитывает прогноз ликвидности, контролирует лимиты, показывает алерты и поддерживает workflow заявок с аудитом действий.',
+    body: 'Единый дашборд собирает денежные потоки, рассчитывает прогноз ликвидности, контролирует лимиты, показывает предупреждения и поддерживает процесс обработки заявок с аудитом действий.',
   },
   {
     title: 'Пользователи',
@@ -223,7 +223,7 @@ const passportSections = [
   {
     title: 'Архитектура',
     icon: ServerCog,
-    body: 'Frontend на React/Vinext, Tailwind CSS и Shadcn UI; далее backend API, база данных, интеграционный слой с АБС и сервис уведомлений.',
+    body: 'Пользовательский интерфейс создан на современных веб-технологиях; далее необходимы серверное API, база данных, интеграционный слой с АБС и сервис уведомлений.',
   },
   {
     title: 'Безопасность',
@@ -478,7 +478,7 @@ export default function Home() {
     link.download = 'liquidity-flows.csv';
     link.click();
     URL.revokeObjectURL(url);
-    addAudit('Экспорт CSV', `Выгружено ${selectedFlows.length} операций.`);
+    addAudit('Экспорт таблицы', `Выгружено ${selectedFlows.length} операций.`);
   }
 
   return (
@@ -522,10 +522,10 @@ export default function Home() {
                 <div>
                   <Badge variant="outline" className="h-7 gap-2 bg-background/70">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Official practice project · Tailwind CSS · Shadcn UI
+                    Официальный проект для практики
                   </Badge>
                   <h2 className="mt-5 max-w-2xl text-3xl font-semibold tracking-tight sm:text-5xl">
-                    Liquidity & Cash Flow Planner для банка.
+                    Планировщик ликвидности и денежных потоков для банка.
                   </h2>
                   <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
                     Официальный учебный прототип системы внутрибанковского планирования ликвидности:
@@ -533,7 +533,7 @@ export default function Home() {
                   </p>
 
                   <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                    <MiniSignal label="Мин. остаток" value={`${minBalance} млн`} trend={deficit > 0 ? 'дефицит' : 'OK'} />
+                    <MiniSignal label="Мин. остаток" value={`${minBalance} млн`} trend={deficit > 0 ? 'дефицит' : 'норма'} />
                     <MiniSignal label="День риска" value={riskDay} trend={scenarioConfig[scenario].label} />
                     <MiniSignal label="Очередь" value={`${pendingCount} заявок`} trend={`${approvedCount} согласовано`} />
                   </div>
@@ -635,7 +635,7 @@ export default function Home() {
               icon={Building2}
               title="Для презентации"
               value="Официальный прототип"
-              text="Добавлены паспорт проекта, роли, лимиты, workflow, аудит и план доработок."
+              text="Добавлены паспорт проекта, роли, лимиты, процесс обработки заявок, аудит и план доработок."
             />
             <DecisionCard
               icon={RefreshCw}
@@ -646,7 +646,7 @@ export default function Home() {
             <DecisionCard
               icon={CheckCircle2}
               title="Финальная цель"
-              value="Bank-grade system"
+              value="Банковская система"
               text="Интеграции, аудит, лимиты, стресс-тесты, отчеты и уведомления."
             />
           </section>
@@ -664,8 +664,8 @@ function Sidebar({ pendingCount }: { pendingCount: number }) {
           <Landmark size={23} aria-hidden="true" />
         </div>
         <div>
-          <p className="text-sm font-semibold">Liquidity Planner</p>
-          <p className="text-xs text-white/55">Treasury command center</p>
+          <p className="text-sm font-semibold">Планировщик ликвидности</p>
+          <p className="text-xs text-white/55">Рабочий центр казначейства</p>
         </div>
       </div>
 
@@ -701,7 +701,7 @@ function Sidebar({ pendingCount }: { pendingCount: number }) {
           <CardTitle className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2">
               <RadioTower size={18} className="text-teal-300" aria-hidden="true" />
-              Live feed
+              Живая лента
             </span>
             <span className="relative flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-300 opacity-75" />
@@ -709,7 +709,7 @@ function Sidebar({ pendingCount }: { pendingCount: number }) {
             </span>
           </CardTitle>
           <CardDescription className="text-white/58">
-            Синхронизация с АБС, депозитами и FX: 22 секунды назад.
+            Синхронизация с АБС, депозитами и валютными операциями: 22 секунды назад.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -934,14 +934,14 @@ function AlertCenter({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Alert center</CardTitle>
+        <CardTitle>Центр предупреждений</CardTitle>
         <CardDescription>Автоматические сигналы, которые должен видеть казначей.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-3">
         {alerts.map((alert) => (
           <div key={alert.title} className="rounded-xl border bg-background/70 p-4">
             <Badge variant="outline" className={statusClass(alert.tone)}>
-              {alert.tone === 'critical' ? 'Critical' : alert.tone === 'warning' ? 'Watch' : 'OK'}
+              {alert.tone === 'critical' ? 'Критично' : alert.tone === 'warning' ? 'Контроль' : 'Норма'}
             </Badge>
             <p className="mt-3 font-semibold">{alert.title}</p>
             <p className="mt-2 text-sm leading-5 text-muted-foreground">{alert.body}</p>
@@ -995,7 +995,7 @@ function ForecastCard({
         <CardDescription>Бары пересчитываются при смене сценария или добавлении заявки.</CardDescription>
         <CardAction>
           <Badge variant={deficit > 0 ? 'destructive' : 'secondary'}>
-            {deficit > 0 ? 'Action required' : 'OK'}
+            {deficit > 0 ? 'Требуется решение' : 'Норма'}
           </Badge>
         </CardAction>
       </CardHeader>
@@ -1105,7 +1105,7 @@ function FlowsCard({
                           onClick={() => updateFlowStatus(flow.id, 'Согласовано')}
                         >
                           <Check aria-hidden="true" />
-                          OK
+                          Да
                         </Button>
                         <Button
                           size="sm"
@@ -1160,18 +1160,18 @@ function AuditCard({ auditLog }: { auditLog: AuditEvent[] }) {
 }
 
 function RoadmapCard() {
-  const groups = ['Critical', 'Core', 'Risk', 'Ops', 'Reports', 'Bank'];
+  const groups = ['Критично', 'Ядро', 'Риски', 'Операции', 'Отчеты', 'Банк'];
   return (
     <Card>
       <CardHeader>
         <CardTitle>Что еще нужно улучшить до реальной банковской системы</CardTitle>
-        <CardDescription>Полный backlog по приоритетам. Critical и Core закрываются первыми.</CardDescription>
+        <CardDescription>Полный список доработок по приоритетам. Сначала закрываются критичные задачи и ядро системы.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {groups.map((group) => (
           <div key={group}>
             <div className="mb-2 flex items-center gap-2">
-              <Badge variant={group === 'Critical' ? 'destructive' : 'secondary'}>{group}</Badge>
+              <Badge variant={group === 'Критично' ? 'destructive' : 'secondary'}>{group}</Badge>
               <span className="text-sm text-muted-foreground">
                 {roadmap.filter((item) => item.state === group).length} задач
               </span>
@@ -1232,7 +1232,7 @@ function ProjectPassport() {
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
             {[
-              'Сбор данных из АБС, кредитного, депозитного и FX-модулей',
+              'Сбор данных из АБС, кредитного, депозитного и валютного модулей',
               'Расчет текущей и прогнозной ликвидности по валютам',
               'Контроль лимитов, нормативов и минимальных остатков',
               'Заявки подразделений и маршруты согласования',
@@ -1270,7 +1270,7 @@ function ProjectPassport() {
       <Card>
         <CardHeader>
           <CardTitle>Технологический стек</CardTitle>
-          <CardDescription>Для презентации можно объяснять как современный web-based banking dashboard.</CardDescription>
+          <CardDescription>Для презентации можно объяснять как современный веб-дашборд для банковских операций.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {['React / Vinext', 'Tailwind CSS', 'Shadcn UI', 'TypeScript'].map((item) => (
@@ -1315,7 +1315,7 @@ function PulseCard({
     <Card className="border bg-background/82 shadow-inner backdrop-blur">
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-sm">
-          Liquidity pulse
+          Пульс ликвидности
           <Activity size={18} className="text-muted-foreground" aria-hidden="true" />
         </CardTitle>
         <CardDescription>{currency} · линия лимита показана красным</CardDescription>
@@ -1410,7 +1410,7 @@ function LimitCard({ name, used, value, state }: { name: string; used: number; v
         <CardDescription>{value}</CardDescription>
         <CardAction>
           <Badge variant={state === 'critical' ? 'destructive' : 'outline'} className={stateTextClass(state)}>
-            {state === 'critical' ? 'Critical' : state === 'warning' ? 'Watch' : 'OK'}
+            {state === 'critical' ? 'Критично' : state === 'warning' ? 'Контроль' : 'Норма'}
           </Badge>
         </CardAction>
       </CardHeader>
