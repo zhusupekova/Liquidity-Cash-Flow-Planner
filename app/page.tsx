@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -25,8 +25,10 @@ import {
   Plus,
   RadioTower,
   RefreshCw,
+  Search,
   ShieldAlert,
   SlidersHorizontal,
+  History,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -56,6 +58,7 @@ type Scenario = 'base' | 'stress' | 'optimistic';
 type Currency = 'KGS' | 'USD' | 'EUR' | 'CNY';
 type Tone = 'good' | 'warning' | 'critical' | 'neutral';
 type FlowStatus = 'Подтверждено' | 'В прогнозе' | 'Согласование' | 'Рекомендация' | 'На согласовании' | 'Согласовано' | 'Отклонено';
+type StatusFilter = 'Все' | 'На согласовании' | 'Согласовано' | 'Отклонено';
 
 type Flow = {
   id: number;
@@ -68,6 +71,13 @@ type Flow = {
   impact: number;
   status: FlowStatus;
   tone: Tone;
+};
+
+type AuditEvent = {
+  id: number;
+  time: string;
+  action: string;
+  detail: string;
 };
 
 const scenarioConfig: Record<Scenario, { label: string; outflowFactor: number; inflowFactor: number }> = {
@@ -175,11 +185,58 @@ const opsChecklist = [
 export default function Home() {
   const [scenario, setScenario] = useState<Scenario>('base');
   const [currency, setCurrency] = useState<Currency>('KGS');
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Все');
   const [requestAmount, setRequestAmount] = useState('120');
   const [requestTitle, setRequestTitle] = useState('Крупный клиентский платеж');
   const [flows, setFlows] = useState(initialFlows);
+  const [auditLog, setAuditLog] = useState<AuditEvent[]>([
+    {
+      id: 100,
+      time: '09:12',
+      action: 'Синхронизация',
+      detail: 'Загружены остатки по KGS, USD, EUR, CNY.',
+    },
+    {
+      id: 101,
+      time: '09:30',
+      action: 'Подтверждение',
+      detail: 'Кредитный блок подтвердил поступление 245 млн KGS.',
+    },
+  ]);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  const selectedFlows = flows.filter((flow) => flow.currency === currency || currency === 'KGS');
+  useEffect(() => {
+    const savedFlows = window.localStorage.getItem('liquidity-planner-flows');
+    const savedAudit = window.localStorage.getItem('liquidity-planner-audit');
+
+    if (savedFlows) {
+      setFlows(JSON.parse(savedFlows) as Flow[]);
+    }
+    if (savedAudit) {
+      setAuditLog(JSON.parse(savedAudit) as AuditEvent[]);
+    }
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    window.localStorage.setItem('liquidity-planner-flows', JSON.stringify(flows));
+    window.localStorage.setItem('liquidity-planner-audit', JSON.stringify(auditLog));
+  }, [auditLog, flows, isHydrated]);
+
+  const selectedFlows = flows.filter((flow) => {
+    const currencyMatch = flow.currency === currency;
+    const statusMatch =
+      statusFilter === 'Все' ||
+      flow.status === statusFilter ||
+      (statusFilter === 'На согласовании' && flow.status === 'Согласование');
+    const queryMatch = `${flow.source} ${flow.owner} ${flow.type} ${flow.amount} ${flow.status}`
+      .toLowerCase()
+      .includes(query.toLowerCase());
+
+    return currencyMatch && statusMatch && queryMatch;
+  });
   const pendingCount = flows.filter((flow) => flow.status === 'На согласовании' || flow.status === 'Согласование').length;
   const approvedCount = flows.filter((flow) => flow.status === 'Согласовано' || flow.status === 'Подтверждено').length;
   const rejectedCount = flows.filter((flow) => flow.status === 'Отклонено').length;
@@ -231,11 +288,13 @@ export default function Home() {
       },
       ...current,
     ]);
+    addAudit('Создана заявка', `${requestTitle.trim()} на ${value} млн ${currency}.`);
     setRequestTitle('');
     setRequestAmount('120');
   }
 
   function updateFlowStatus(id: number, status: 'Согласовано' | 'Отклонено') {
+    const target = flows.find((flow) => flow.id === id);
     setFlows((current) =>
       current.map((flow) =>
         flow.id === id
@@ -247,6 +306,54 @@ export default function Home() {
           : flow,
       ),
     );
+    if (target) {
+      addAudit(status, `${target.source}: ${target.amount}.`);
+    }
+  }
+
+  function addAudit(action: string, detail: string) {
+    const time = new Intl.DateTimeFormat('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date());
+    setAuditLog((current) => [{ id: Date.now(), time, action, detail }, ...current].slice(0, 8));
+  }
+
+  function resetDemo() {
+    setFlows(initialFlows);
+    setAuditLog([
+      {
+        id: Date.now(),
+        time: new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date()),
+        action: 'Сброс демо',
+        detail: 'Потоки и журнал возвращены к исходному состоянию.',
+      },
+    ]);
+    setQuery('');
+    setStatusFilter('Все');
+  }
+
+  function exportCsv() {
+    const header = ['time', 'source', 'owner', 'type', 'amount', 'status'];
+    const rows = selectedFlows.map((flow) => [
+      flow.time,
+      flow.source,
+      flow.owner,
+      flow.type,
+      flow.amount,
+      flow.status,
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'liquidity-flows.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+    addAudit('Экспорт CSV', `Выгружено ${selectedFlows.length} операций.`);
   }
 
   return (
@@ -269,6 +376,10 @@ export default function Home() {
               <Button variant="outline" size="lg">
                 <CalendarDays aria-hidden="true" />
                 7 дней
+              </Button>
+              <Button variant="outline" size="lg" onClick={resetDemo}>
+                <RefreshCw aria-hidden="true" />
+                Сбросить демо
               </Button>
               <Button size="lg" className="shadow-[0_14px_30px_rgba(15,118,110,0.25)]">
                 <Bell aria-hidden="true" />
@@ -310,10 +421,14 @@ export default function Home() {
             <ControlPanel
               scenario={scenario}
               currency={currency}
+              query={query}
+              statusFilter={statusFilter}
               requestAmount={requestAmount}
               requestTitle={requestTitle}
               setScenario={setScenario}
               setCurrency={setCurrency}
+              setQuery={setQuery}
+              setStatusFilter={setStatusFilter}
               setRequestAmount={setRequestAmount}
               setRequestTitle={setRequestTitle}
               createRequest={createRequest}
@@ -337,6 +452,7 @@ export default function Home() {
               <TabsTrigger value="forecast" className="px-4">Прогноз</TabsTrigger>
               <TabsTrigger value="flows" className="px-4">Потоки</TabsTrigger>
               <TabsTrigger value="limits" className="px-4">Лимиты</TabsTrigger>
+              <TabsTrigger value="audit" className="px-4">Аудит</TabsTrigger>
               <TabsTrigger value="roadmap" className="px-4">Все доработки</TabsTrigger>
             </TabsList>
 
@@ -352,7 +468,7 @@ export default function Home() {
             </TabsContent>
 
             <TabsContent value="flows">
-              <FlowsCard flows={selectedFlows} updateFlowStatus={updateFlowStatus} />
+              <FlowsCard flows={selectedFlows} updateFlowStatus={updateFlowStatus} exportCsv={exportCsv} />
             </TabsContent>
 
             <TabsContent value="limits">
@@ -362,6 +478,10 @@ export default function Home() {
                 <LimitCard name="Корреспондентский счет USD" used={61} value="12.4 / 20 млн" state="good" />
                 <LimitCard name="Крупные платежи до 17:00" used={Math.min(100, flows.length * 9)} value={`${flows.length} операций`} state={flows.length > 8 ? 'warning' : 'good'} />
               </div>
+            </TabsContent>
+
+            <TabsContent value="audit">
+              <AuditCard auditLog={auditLog} />
             </TabsContent>
 
             <TabsContent value="roadmap">
@@ -471,20 +591,28 @@ function Sidebar({ pendingCount }: { pendingCount: number }) {
 function ControlPanel({
   scenario,
   currency,
+  query,
+  statusFilter,
   requestAmount,
   requestTitle,
   setScenario,
   setCurrency,
+  setQuery,
+  setStatusFilter,
   setRequestAmount,
   setRequestTitle,
   createRequest,
 }: {
   scenario: Scenario;
   currency: Currency;
+  query: string;
+  statusFilter: StatusFilter;
   requestAmount: string;
   requestTitle: string;
   setScenario: (value: Scenario) => void;
   setCurrency: (value: Currency) => void;
+  setQuery: (value: string) => void;
+  setStatusFilter: (value: StatusFilter) => void;
   setRequestAmount: (value: string) => void;
   setRequestTitle: (value: string) => void;
   createRequest: (event: FormEvent<HTMLFormElement>) => void;
@@ -526,6 +654,32 @@ function ControlPanel({
                 onClick={() => setCurrency(code as Currency)}
               >
                 {code}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-background/70 p-4">
+          <p className="text-sm font-semibold">Фильтры операций</p>
+          <div className="relative mt-3">
+            <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              aria-label="Поиск операций"
+              className="pl-8"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Поиск по операции, отделу, статусу"
+            />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(['Все', 'На согласовании', 'Согласовано', 'Отклонено'] as StatusFilter[]).map((status) => (
+              <Button
+                key={status}
+                type="button"
+                variant={statusFilter === status ? 'secondary' : 'outline'}
+                onClick={() => setStatusFilter(status)}
+              >
+                {status}
               </Button>
             ))}
           </div>
@@ -693,9 +847,11 @@ function ForecastCard({
 function FlowsCard({
   flows,
   updateFlowStatus,
+  exportCsv,
 }: {
   flows: Flow[];
   updateFlowStatus: (id: number, status: 'Согласовано' | 'Отклонено') => void;
+  exportCsv: () => void;
 }) {
   return (
     <Card>
@@ -703,7 +859,7 @@ function FlowsCard({
         <CardTitle>Операционный поток и согласование</CardTitle>
         <CardDescription>Заявки можно согласовать или отклонить. Отклоненные не давят на прогноз.</CardDescription>
         <CardAction>
-          <Button variant="outline">
+          <Button variant="outline" onClick={exportCsv}>
             <Download aria-hidden="true" />
             Экспорт
           </Button>
@@ -723,7 +879,14 @@ function FlowsCard({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {flows.map((flow) => {
+            {flows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-28 text-center text-muted-foreground">
+                  Нет операций под выбранные фильтры.
+                </TableCell>
+              </TableRow>
+            ) : (
+              flows.map((flow) => {
               const canApprove = flow.status === 'На согласовании' || flow.status === 'Согласование';
               return (
                 <TableRow key={`${flow.id}-${flow.status}`}>
@@ -755,9 +918,37 @@ function FlowsCard({
                   </TableCell>
                 </TableRow>
               );
-            })}
+              })
+            )}
           </TableBody>
         </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AuditCard({ auditLog }: { auditLog: AuditEvent[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <History size={20} aria-hidden="true" />
+          Журнал аудита
+        </CardTitle>
+        <CardDescription>
+          В настоящей банковской системе этот журнал должен быть неизменяемым и храниться на сервере.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {auditLog.map((event) => (
+            <div key={event.id} className="grid gap-2 rounded-xl border bg-background/70 p-4 sm:grid-cols-[80px_180px_1fr]">
+              <span className="text-sm font-semibold text-muted-foreground">{event.time}</span>
+              <span className="text-sm font-semibold">{event.action}</span>
+              <span className="text-sm leading-5 text-muted-foreground">{event.detail}</span>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
