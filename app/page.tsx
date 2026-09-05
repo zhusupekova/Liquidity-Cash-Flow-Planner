@@ -16,6 +16,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
+  Database,
   Download,
   FileCheck2,
   Gauge,
@@ -26,6 +27,7 @@ import {
   Plus,
   RadioTower,
   RefreshCw,
+  Route,
   Search,
   ServerCog,
   ShieldAlert,
@@ -64,6 +66,7 @@ type Tone = 'good' | 'warning' | 'critical' | 'neutral';
 type FlowStatus = 'Подтверждено' | 'В прогнозе' | 'Согласование' | 'Рекомендация' | 'На согласовании' | 'Согласовано' | 'Отклонено';
 type StatusFilter = 'Все' | 'На согласовании' | 'Согласовано' | 'Отклонено';
 type UserRole = 'Казначей' | 'Риск-менеджер' | 'Руководитель' | 'Аудитор';
+type TabValue = 'forecast' | 'passport' | 'defense' | 'flows' | 'limits' | 'audit' | 'requests' | 'reports' | 'settings' | 'roadmap';
 
 type Flow = {
   id: number;
@@ -76,6 +79,9 @@ type Flow = {
   impact: number;
   status: FlowStatus;
   tone: Tone;
+  priority?: 'Высокий' | 'Средний' | 'Низкий';
+  route?: string;
+  comment?: string;
 };
 
 type AuditEvent = {
@@ -147,6 +153,9 @@ const initialFlows: Flow[] = [
     impact: 245,
     status: 'Подтверждено',
     tone: 'good',
+    priority: 'Средний',
+    route: 'Кредитный блок → Казначейство',
+    comment: 'Плановое поступление по графику погашений.',
   },
   {
     id: 2,
@@ -159,6 +168,9 @@ const initialFlows: Flow[] = [
     impact: -318,
     status: 'В прогнозе',
     tone: 'warning',
+    priority: 'Высокий',
+    route: 'Депозитный отдел → Казначейство → Руководитель',
+    comment: 'Крупный отток должен быть подтвержден до обеда.',
   },
   {
     id: 3,
@@ -171,6 +183,9 @@ const initialFlows: Flow[] = [
     impact: -186,
     status: 'Согласование',
     tone: 'critical',
+    priority: 'Высокий',
+    route: 'Валютные операции → Риск-менеджер → Руководитель',
+    comment: 'Проверить влияние на валютную позицию.',
   },
   {
     id: 4,
@@ -183,6 +198,9 @@ const initialFlows: Flow[] = [
     impact: -400,
     status: 'Рекомендация',
     tone: 'neutral',
+    priority: 'Средний',
+    route: 'Казначейство → Руководитель',
+    comment: 'Возможное размещение свободного остатка.',
   },
 ];
 
@@ -232,12 +250,12 @@ const passportSections = [
   },
 ];
 
-const navItems = [
-  { label: 'Позиция', icon: Gauge },
-  { label: 'Потоки', icon: Activity },
-  { label: 'Лимиты', icon: ShieldAlert },
-  { label: 'Заявки', icon: FileCheck2 },
-  { label: 'Доработки', icon: Layers3 },
+const navItems: Array<{ label: string; icon: LucideIcon; tab: TabValue }> = [
+  { label: 'Позиция', icon: Gauge, tab: 'forecast' },
+  { label: 'Потоки', icon: Activity, tab: 'flows' },
+  { label: 'Лимиты', icon: ShieldAlert, tab: 'limits' },
+  { label: 'Заявки', icon: FileCheck2, tab: 'requests' },
+  { label: 'Доработки', icon: Layers3, tab: 'roadmap' },
 ];
 
 const opsChecklist = [
@@ -307,7 +325,41 @@ const defenseQuestions = [
   },
 ];
 
+const prototypeLimits = [
+  {
+    title: 'Данные демонстрационные',
+    body: 'Сейчас операции не приходят из реальной АБС, а заданы внутри прототипа для показа бизнес-логики.',
+  },
+  {
+    title: 'Хранение в браузере',
+    body: 'Заявки, лимиты и аудит сохраняются локально. В банке это должно храниться на сервере в защищенной базе данных.',
+  },
+  {
+    title: 'Права только в интерфейсе',
+    body: 'Роли показывают будущую модель доступа, но промышленная версия должна проверять права на сервере.',
+  },
+  {
+    title: 'Отчеты учебные',
+    body: 'Экспорт уже формирует файл, но для банка нужны утвержденные формы, подписи, архив и контроль версий.',
+  },
+];
+
+const architectureSteps = [
+  { title: 'Интерфейс', body: 'Рабочее место казначейства, рисков, руководства и аудитора.', icon: Gauge },
+  { title: 'Сервер расчетов', body: 'Расчет ликвидности, проверка лимитов, маршрутизация заявок.', icon: ServerCog },
+  { title: 'База данных', body: 'Операции, лимиты, заявки, статусы, журнал действий.', icon: Database },
+  { title: 'Интеграции', body: 'АБС, депозитный модуль, кредитный модуль, валютные операции.', icon: Route },
+];
+
+const economicEffect = [
+  { label: 'Сокращение ручной сверки', value: '60-80%', detail: 'за счет единого операционного окна' },
+  { label: 'Раннее выявление дефицита', value: 'до начала дня', detail: 'через прогноз и стресс-сценарии' },
+  { label: 'Согласование заявок', value: 'прозрачнее', detail: 'видны статус, маршрут и ответственный блок' },
+  { label: 'Управленческий контроль', value: 'ежедневно', detail: 'через отчеты, аудит и лимиты' },
+];
+
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabValue>('forecast');
   const [scenario, setScenario] = useState<Scenario>('base');
   const [currency, setCurrency] = useState<Currency>('KGS');
   const [role, setRole] = useState<UserRole>('Казначей');
@@ -338,6 +390,7 @@ export default function Home() {
     },
   ]);
   const [isHydrated, setIsHydrated] = useState(false);
+  const demoDate = '04.09.2026';
 
   useEffect(() => {
     const savedFlows = window.localStorage.getItem('liquidity-planner-flows');
@@ -439,6 +492,9 @@ export default function Home() {
         impact: -value,
         status: 'На согласовании',
         tone: value > 250 ? 'critical' : 'warning',
+        priority: value > 250 ? 'Высокий' : 'Средний',
+        route: value > 250 ? 'Подразделение → Казначейство → Руководитель' : 'Подразделение → Казначейство',
+        comment: 'Создано вручную в демонстрационном сценарии.',
       },
       ...current,
     ]);
@@ -496,6 +552,15 @@ export default function Home() {
       CNY: currencyLimits.CNY.reserve,
     });
     setRole('Казначей');
+    setScenario('base');
+    setCurrency('KGS');
+    setActiveTab('forecast');
+  }
+
+  function startPresentationMode() {
+    resetDemo();
+    setActiveTab('defense');
+    addAudit('Режим защиты', 'Демо-сценарий сброшен и открыт раздел защиты проекта.');
   }
 
   function updateLimit() {
@@ -509,8 +574,18 @@ export default function Home() {
     addAudit('Изменен лимит', `${currency}: новый минимальный остаток ${value} млн.`);
   }
 
+  function downloadTextFile(fileName: string, content: string, mimeType = 'text/csv;charset=utf-8') {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function exportCsv() {
-    const header = ['time', 'source', 'owner', 'type', 'amount', 'status'];
+    const header = ['Время', 'Операция', 'Владелец', 'Тип', 'Сумма', 'Статус', 'Приоритет', 'Маршрут'];
     const rows = selectedFlows.map((flow) => [
       flow.time,
       flow.source,
@@ -518,31 +593,48 @@ export default function Home() {
       flow.type,
       flow.amount,
       flow.status,
+      flow.priority ?? 'Средний',
+      flow.route ?? 'Казначейство',
     ]);
     const csv = [header, ...rows]
       .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
       .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'liquidity-flows.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadTextFile('operacionnye-potoki-likvidnosti.csv', csv);
     addAudit('Экспорт таблицы', `Выгружено ${selectedFlows.length} операций.`);
+  }
+
+  function exportReport(reportTitle: string) {
+    const rows = [
+      ['Отчет', reportTitle],
+      ['Демонстрационный операционный день', `${demoDate}, Бишкек`],
+      ['Валюта', currency],
+      ['Сценарий', scenarioConfig[scenario].label],
+      ['Поступления', `${totalInflow} млн`],
+      ['Списания', `${totalOutflow} млн`],
+      ['Чистый поток', `${totalInflow - totalOutflow} млн`],
+      ['Прогнозный дефицит', `${deficit} млн`],
+      ['Заявки на согласовании', `${pendingCount}`],
+      ['Минимальный лимит', `${reserve} млн`],
+      ['Минимальный остаток прогноза', `${minBalance} млн`],
+    ];
+    const csv = rows
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+    downloadTextFile(`${reportTitle.toLowerCase().replaceAll(' ', '-')}.csv`, csv);
+    addAudit('Экспорт отчета', `${reportTitle}: ${currency}, сценарий ${scenarioConfig[scenario].label}.`);
   }
 
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <AnimatedBackdrop />
-      <Sidebar pendingCount={pendingCount} />
+      <Sidebar activeTab={activeTab} pendingCount={pendingCount} setActiveTab={setActiveTab} startPresentationMode={startPresentationMode} />
 
       <section className="relative z-10 lg:pl-[280px]">
         <header className="border-b bg-background/75 px-5 py-4 backdrop-blur-xl sm:px-8">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-muted-foreground">
-                Операционный день · 04.09.2026 · Бишкек
+                Демонстрационный операционный день · {demoDate} · Бишкек
               </p>
               <h1 className="mt-1 max-w-4xl text-2xl font-semibold tracking-tight sm:text-4xl">
                 Центр управления ликвидностью банка
@@ -552,6 +644,10 @@ export default function Home() {
               <Button variant="outline" size="lg">
                 <CalendarDays aria-hidden="true" />
                 7 дней
+              </Button>
+              <Button variant="outline" size="lg" onClick={startPresentationMode}>
+                <BookOpenCheck aria-hidden="true" />
+                Начать защиту
               </Button>
               <Button variant="outline" size="lg" onClick={resetDemo}>
                 <RefreshCw aria-hidden="true" />
@@ -641,7 +737,7 @@ export default function Home() {
 
           <PresentationReadiness />
 
-          <Tabs defaultValue="forecast" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)} className="space-y-4">
             <TabsList className="h-10 flex-wrap">
               <TabsTrigger value="forecast" className="px-4">Прогноз</TabsTrigger>
               <TabsTrigger value="passport" className="px-4">Паспорт</TabsTrigger>
@@ -684,12 +780,17 @@ export default function Home() {
             </TabsContent>
 
             <TabsContent value="limits">
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                <LimitCard name="Минимальный остаток" used={Math.min(100, Math.round((reserve / Math.max(minBalance, 1)) * 100))} value={`${minBalance} / ${reserve} млн`} state={deficit > 0 ? 'critical' : 'good'} />
-                <LimitCard name="Межбанк overnight" used={72} value="1.8 / 2.5 млрд" state="warning" />
-                <LimitCard name="Корреспондентский счет USD" used={61} value="12.4 / 20 млн" state="good" />
-                <LimitCard name="Крупные платежи до 17:00" used={Math.min(100, flows.length * 9)} value={`${flows.length} операций`} state={flows.length > 8 ? 'warning' : 'good'} />
-              </div>
+              <LimitsWorkspace
+                activeAccess={activeAccess}
+                currency={currency}
+                deficit={deficit}
+                flowsCount={flows.length}
+                limitDraft={limitDraft}
+                minBalance={minBalance}
+                reserve={reserve}
+                setLimitDraft={setLimitDraft}
+                updateLimit={updateLimit}
+              />
             </TabsContent>
 
             <TabsContent value="audit">
@@ -702,6 +803,7 @@ export default function Home() {
 
             <TabsContent value="reports">
               <ReportsWorkspace
+                exportReport={exportReport}
                 totalInflow={totalInflow}
                 totalOutflow={totalOutflow}
                 deficit={deficit}
@@ -745,7 +847,17 @@ export default function Home() {
   );
 }
 
-function Sidebar({ pendingCount }: { pendingCount: number }) {
+function Sidebar({
+  activeTab,
+  pendingCount,
+  setActiveTab,
+  startPresentationMode,
+}: {
+  activeTab: TabValue;
+  pendingCount: number;
+  setActiveTab: (value: TabValue) => void;
+  startPresentationMode: () => void;
+}) {
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-[280px] border-r border-white/10 bg-sidebar px-4 py-5 text-sidebar-foreground lg:block">
       <div className="flex items-center gap-3">
@@ -761,12 +873,14 @@ function Sidebar({ pendingCount }: { pendingCount: number }) {
       <nav className="mt-8 space-y-1" aria-label="Основные разделы">
         {navItems.map((item, index) => {
           const Icon = item.icon;
+          const isActive = activeTab === item.tab;
           return (
-            <a
-              href={`#${item.label.toLowerCase()}`}
+            <button
+              type="button"
               key={item.label}
+              onClick={() => setActiveTab(item.tab)}
               className={`group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
-                index === 0
+                isActive
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-inner'
                   : 'text-white/62 hover:bg-sidebar-accent hover:text-white'
               }`}
@@ -777,13 +891,18 @@ function Sidebar({ pendingCount }: { pendingCount: number }) {
                 <span className="ml-auto rounded-full bg-amber-300 px-2 py-0.5 text-[11px] font-semibold text-slate-900">
                   {pendingCount}
                 </span>
-              ) : index === 0 ? (
+              ) : index === 0 || isActive ? (
                 <ChevronRight className="ml-auto" size={16} aria-hidden="true" />
               ) : null}
-            </a>
+            </button>
           );
         })}
       </nav>
+
+      <Button type="button" className="mt-5 w-full" onClick={startPresentationMode}>
+        <BookOpenCheck aria-hidden="true" />
+        Режим защиты
+      </Button>
 
       <Card className="mt-7 border-white/10 bg-white/[0.06] text-white shadow-none ring-white/10">
         <CardHeader>
@@ -1266,6 +1385,91 @@ function FlowsCard({
   );
 }
 
+function LimitsWorkspace({
+  activeAccess,
+  currency,
+  deficit,
+  flowsCount,
+  limitDraft,
+  minBalance,
+  reserve,
+  setLimitDraft,
+  updateLimit,
+}: {
+  activeAccess: (typeof roleAccess)[UserRole];
+  currency: Currency;
+  deficit: number;
+  flowsCount: number;
+  limitDraft: string;
+  minBalance: number;
+  reserve: number;
+  setLimitDraft: (value: string) => void;
+  updateLimit: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Управление минимальным остатком</CardTitle>
+            <CardDescription>
+              Риск-менеджер может изменить лимит и сразу увидеть влияние на статус ликвидности.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-xl border bg-background/70 p-4">
+              <p className="text-sm text-muted-foreground">Выбранная валюта</p>
+              <p className="mt-1 text-2xl font-semibold">{currency}</p>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Input
+                aria-label="Минимальный лимит в разделе лимитов"
+                type="number"
+                min="1"
+                value={limitDraft}
+                onChange={(event) => setLimitDraft(event.target.value)}
+                placeholder="Минимальный остаток"
+              />
+              <Button type="button" onClick={updateLimit} disabled={!activeAccess.canSetLimits}>
+                Сохранить
+              </Button>
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              В текущей роли изменение лимита {activeAccess.canSetLimits ? 'разрешено.' : 'недоступно. Переключитесь на роль риск-менеджера.'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <LimitCard name="Минимальный остаток" used={Math.min(100, Math.round((reserve / Math.max(minBalance, 1)) * 100))} value={`${minBalance} / ${reserve} млн`} state={deficit > 0 ? 'critical' : 'good'} />
+          <LimitCard name="Межбанк overnight" used={72} value="1.8 / 2.5 млрд" state="warning" />
+          <LimitCard name="Корреспондентский счет USD" used={61} value="12.4 / 20 млн" state="good" />
+          <LimitCard name="Крупные платежи до 17:00" used={Math.min(100, flowsCount * 9)} value={`${flowsCount} операций`} state={flowsCount > 8 ? 'warning' : 'good'} />
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Правила контроля лимитов</CardTitle>
+          <CardDescription>Такую логику нужно перенести на сервер в промышленной версии.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          {[
+            'Минимальный остаток не должен опускаться ниже установленного лимита.',
+            'Крупные клиентские платежи должны проходить согласование до исполнения.',
+            'Валютные операции должны проверяться на влияние на валютную позицию.',
+          ].map((item) => (
+            <div key={item} className="rounded-xl border bg-background/70 p-4">
+              <ShieldCheck className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+              <p className="mt-3 text-sm leading-6">{item}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function AuditCard({ auditLog }: { auditLog: AuditEvent[] }) {
   return (
     <Card>
@@ -1335,10 +1539,12 @@ function RequestsWorkspace({
                 <Badge variant="outline" className={statusClass(flow.tone)}>{flow.status}</Badge>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                <span className="rounded-lg bg-muted p-2">Создание</span>
-                <span className="rounded-lg bg-muted p-2">Согласование</span>
+                <span className="rounded-lg bg-muted p-2">Приоритет: {flow.priority ?? 'Средний'}</span>
+                <span className="rounded-lg bg-muted p-2">Маршрут</span>
                 <span className="rounded-lg bg-muted p-2">Исполнение</span>
               </div>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">{flow.route ?? 'Казначейство'}.</p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">{flow.comment ?? 'Комментарий будет добавлен ответственным подразделением.'}</p>
             </div>
           ))}
         </CardContent>
@@ -1348,12 +1554,14 @@ function RequestsWorkspace({
 }
 
 function ReportsWorkspace({
+  exportReport,
   totalInflow,
   totalOutflow,
   deficit,
   pendingCount,
   currency,
 }: {
+  exportReport: (reportTitle: string) => void;
   totalInflow: number;
   totalOutflow: number;
   deficit: number;
@@ -1407,7 +1615,7 @@ function ReportsWorkspace({
                     <Badge variant="outline">{report.status}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={() => exportReport(report.title)}>
                       <Download aria-hidden="true" />
                       Выгрузить
                     </Button>
@@ -1602,6 +1810,12 @@ function ProjectPassport() {
         </Card>
       </div>
 
+      <PrototypeLimitations />
+
+      <ArchitectureMap />
+
+      <EconomicImpact />
+
       <Card>
         <CardHeader>
           <CardTitle>Технологический стек</CardTitle>
@@ -1619,6 +1833,81 @@ function ProjectPassport() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function PrototypeLimitations() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Ограничения текущего прототипа</CardTitle>
+        <CardDescription>
+          Этот блок нужен для честной защиты: он показывает разницу между учебным прототипом и промышленной банковской системой.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {prototypeLimits.map((item) => (
+          <div key={item.title} className="rounded-xl border bg-background/70 p-4">
+            <Badge variant="outline">ограничение</Badge>
+            <p className="mt-3 font-semibold">{item.title}</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.body}</p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ArchitectureMap() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Архитектура промышленной версии</CardTitle>
+        <CardDescription>Как прототип должен развиваться до внутрибанковской системы.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 md:grid-cols-4">
+          {architectureSteps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <div key={step.title} className="relative rounded-xl border bg-background/70 p-4">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+                    <Icon size={20} aria-hidden="true" />
+                  </span>
+                  <p className="font-semibold">{step.title}</p>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">{step.body}</p>
+                {index < architectureSteps.length - 1 ? (
+                  <ChevronRight className="absolute -right-4 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-muted-foreground md:block" aria-hidden="true" />
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EconomicImpact() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Экономический и операционный эффект</CardTitle>
+        <CardDescription>Какие результаты банк ожидает получить после внедрения системы.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {economicEffect.map((item) => (
+          <div key={item.label} className="rounded-xl border bg-background/70 p-4">
+            <CircleDollarSign className="h-5 w-5 text-teal-700" aria-hidden="true" />
+            <p className="mt-3 text-sm text-muted-foreground">{item.label}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight">{item.value}</p>
+            <p className="mt-2 text-sm leading-5 text-muted-foreground">{item.detail}</p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1661,6 +1950,10 @@ function DefenseWorkspace() {
           ))}
         </CardContent>
       </Card>
+
+      <PrototypeLimitations />
+
+      <ArchitectureMap />
     </div>
   );
 }
