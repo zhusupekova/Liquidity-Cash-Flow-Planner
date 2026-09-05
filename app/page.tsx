@@ -256,6 +256,57 @@ const presentationPlan = [
   'Открыть вкладку доработок и объяснить путь до промышленной версии.',
 ];
 
+const valueChain = [
+  {
+    title: 'Проблема',
+    value: 'ручные расчеты',
+    body: 'Данные по счетам, депозитам, кредитам и валюте собираются отдельно, поэтому решение по ликвидности запаздывает.',
+  },
+  {
+    title: 'Решение',
+    value: 'единый контур',
+    body: 'Система сводит потоки, показывает прогноз, проверяет лимиты и фиксирует каждое действие в журнале аудита.',
+  },
+  {
+    title: 'Эффект',
+    value: 'контроль риска',
+    body: 'Казначейство быстрее видит дефицит, руководитель получает прозрачную картину, а свободные средства не простаивают.',
+  },
+];
+
+const readinessItems = [
+  { label: 'Дашборд и прогноз', value: 92, detail: 'показан рабочий сценарий казначейства' },
+  { label: 'Заявки и согласование', value: 84, detail: 'есть создание, решение и влияние на прогноз' },
+  { label: 'Роли и лимиты', value: 78, detail: 'права разделены между ключевыми участниками' },
+  { label: 'Промышленный контур', value: 48, detail: 'нужны база данных, сервер и интеграции с АБС' },
+];
+
+const bankEffect = [
+  { label: 'Скорость расчета', value: 'до минут', detail: 'вместо ручной сверки таблиц' },
+  { label: 'Риск кассового разрыва', value: 'ниже', detail: 'за счет ранних предупреждений' },
+  { label: 'Свободные ресурсы', value: 'видны', detail: 'для межбанка и валютных решений' },
+  { label: 'Контроль действий', value: 'прозрачен', detail: 'через журнал аудита' },
+];
+
+const defenseQuestions = [
+  {
+    question: 'Почему такая система нужна банку?',
+    answer: 'Она заменяет ручное планирование ликвидности единым расчетом, снижает риск ошибок и ускоряет согласование операций.',
+  },
+  {
+    question: 'Что уже реализовано в прототипе?',
+    answer: 'Прогноз по дням, сценарии, валюты, заявки, роли, лимиты, предупреждения, аудит, отчеты и карта доработок.',
+  },
+  {
+    question: 'Что отличает прототип от промышленной версии?',
+    answer: 'В прототипе данные демонстрационные и хранятся в браузере; промышленной версии нужны сервер, база, интеграции и безопасность.',
+  },
+  {
+    question: 'Как доказать пользу системы на демонстрации?',
+    answer: 'Создать заявку, показать изменение прогноза, согласовать операцию, открыть аудит и объяснить контроль лимитов.',
+  },
+];
+
 export default function Home() {
   const [scenario, setScenario] = useState<Scenario>('base');
   const [currency, setCurrency] = useState<Currency>('KGS');
@@ -537,6 +588,16 @@ export default function Home() {
                     <MiniSignal label="День риска" value={riskDay} trend={scenarioConfig[scenario].label} />
                     <MiniSignal label="Очередь" value={`${pendingCount} заявок`} trend={`${approvedCount} согласовано`} />
                   </div>
+
+                  <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                    {valueChain.map((item) => (
+                      <div key={item.title} className="rounded-lg border bg-background/72 p-3 backdrop-blur">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">{item.title}</p>
+                        <p className="mt-1 text-base font-semibold">{item.value}</p>
+                        <p className="mt-2 text-xs leading-5 text-muted-foreground">{item.body}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <PulseCard reserve={reserve} maxBalance={maxBalance} forecast={forecast} currency={currency} />
@@ -578,10 +639,13 @@ export default function Home() {
             <Checklist />
           </section>
 
+          <PresentationReadiness />
+
           <Tabs defaultValue="forecast" className="space-y-4">
             <TabsList className="h-10 flex-wrap">
               <TabsTrigger value="forecast" className="px-4">Прогноз</TabsTrigger>
               <TabsTrigger value="passport" className="px-4">Паспорт</TabsTrigger>
+              <TabsTrigger value="defense" className="px-4">Защита</TabsTrigger>
               <TabsTrigger value="flows" className="px-4">Потоки</TabsTrigger>
               <TabsTrigger value="limits" className="px-4">Лимиты</TabsTrigger>
               <TabsTrigger value="audit" className="px-4">Аудит</TabsTrigger>
@@ -604,6 +668,10 @@ export default function Home() {
 
             <TabsContent value="passport">
               <ProjectPassport />
+            </TabsContent>
+
+            <TabsContent value="defense">
+              <DefenseWorkspace />
             </TabsContent>
 
             <TabsContent value="flows">
@@ -977,7 +1045,7 @@ function Checklist() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Операционный checklist</CardTitle>
+        <CardTitle>Операционный контрольный список</CardTitle>
         <CardDescription>Что должно быть закрыто до конца дня.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -991,6 +1059,51 @@ function Checklist() {
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+function PresentationReadiness() {
+  return (
+    <section className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]" aria-label="Презентационная готовность">
+      <Card>
+        <CardHeader>
+          <CardTitle>Готовность проекта к защите</CardTitle>
+          <CardDescription>Что уже можно официально показать на практике и где проходит граница прототипа.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {readinessItems.map((item) => (
+            <div key={item.label}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.detail}</p>
+                </div>
+                <span className="text-sm font-semibold">{item.value}%</span>
+              </div>
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
+                <div className="limit-fill h-2.5 rounded-full bg-primary" style={{ width: `${item.value}%` }} />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ожидаемый эффект для банка</CardTitle>
+          <CardDescription>Короткие тезисы, которые усиливают практическую ценность проекта.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          {bankEffect.map((item) => (
+            <div key={item.label} className="rounded-xl border bg-background/70 p-4">
+              <p className="text-sm text-muted-foreground">{item.label}</p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight">{item.value}</p>
+              <p className="mt-2 text-sm leading-5 text-muted-foreground">{item.detail}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 
@@ -1459,7 +1572,7 @@ function ProjectPassport() {
               'Контроль лимитов, нормативов и минимальных остатков',
               'Заявки подразделений и маршруты согласования',
               'Сценарное моделирование и стресс-тесты',
-              'Уведомления, эскалации и операционный checklist',
+              'Уведомления, эскалации и операционный контрольный список',
               'Отчеты для казначейства, рисков и руководства',
               'Журнал аудита и контроль действий пользователей',
             ].map((item) => (
@@ -1501,6 +1614,49 @@ function ProjectPassport() {
               <p className="mt-2 text-sm leading-5 text-muted-foreground">
                 Используется в текущем интерактивном прототипе.
               </p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function DefenseWorkspace() {
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Раздел для защиты проекта</CardTitle>
+          <CardDescription>
+            Короткая логика выступления: от проблемы банка к рабочему прототипу и дальнейшему внедрению.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            { title: '1. Актуальность', body: 'Ручное планирование создает задержки, ошибки и риск кассового разрыва.' },
+            { title: '2. Решение', body: 'Единый дашборд показывает остатки, прогноз, лимиты, заявки и предупреждения.' },
+            { title: '3. Демонстрация', body: 'Создается заявка, меняется прогноз, выполняется согласование и появляется запись аудита.' },
+            { title: '4. Развитие', body: 'Следующий этап: сервер, база данных, интеграции, уведомления и промышленная безопасность.' },
+          ].map((item) => (
+            <div key={item.title} className="rounded-xl border bg-background/70 p-4">
+              <Badge variant="secondary">{item.title}</Badge>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.body}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ответы на возможные вопросы</CardTitle>
+          <CardDescription>Помогает уверенно объяснить, что уже сделано и что требуется для реального банка.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          {defenseQuestions.map((item) => (
+            <div key={item.question} className="rounded-xl border bg-background/70 p-4">
+              <p className="font-semibold">{item.question}</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.answer}</p>
             </div>
           ))}
         </CardContent>
