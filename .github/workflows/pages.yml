@@ -1,0 +1,59 @@
+name: Публикация GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Сборка сайта
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Подготовить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Подготовить GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Установить зависимости
+        run: npm ci
+
+      - name: Собрать статическую версию
+        run: npm run build:pages
+
+      - name: Добавить fallback для прямых ссылок
+        run: cp dist-pages/index.html dist-pages/404.html
+
+      - name: Загрузить артефакт Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-pages
+
+  deploy:
+    name: Публикация
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Опубликовать в GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

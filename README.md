@@ -103,6 +103,10 @@
 
 https://liquidity-cash-flow-planner.aizhanabatyrova26.chatgpt.site
 
+Версия для GitHub Pages после включения публикации через GitHub Actions:
+
+https://zhusupekova.github.io/Liquidity-Cash-Flow-Planner/
+
 ## Сценарий презентации
 
 1. Объяснить проблему ручного планирования ликвидности.
