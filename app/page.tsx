@@ -87,7 +87,7 @@ type TabValue =
   | 'roadmap';
 
 type Flow = {
-  id: number;
+  id: number | string;
   time: string;
   source: string;
   owner: string;
@@ -505,14 +505,14 @@ const industrialReadiness = [
     title: '1. База данных',
     status: 'Подготовлено',
     body: 'Добавлен логический binding DB, SQL-схема и миграция для пользователей, потоков, лимитов, заявок, аудита и уведомлений.',
-    proof: 'db/schema.ts · drizzle/0001_bank_core.sql',
+    proof: 'D1 хранит заявки, решения и минимальные лимиты',
     tone: 'good' as Tone,
   },
   {
     title: '2. Серверный API',
     status: 'Добавлено',
-    body: 'Созданы API-точки для состояния сервиса, сводки ликвидности, заявок и промышленной готовности.',
-    proof: '/api/health · /api/liquidity/summary · /api/requests',
+    body: 'Созданы API-точки для состояния сервиса, сводки ликвидности, заявок, лимитов и промышленной готовности.',
+    proof: '/api/health · /api/liquidity/summary · /api/requests · /api/limits',
     tone: 'good' as Tone,
   },
   {
@@ -525,8 +525,8 @@ const industrialReadiness = [
   {
     title: '4. Серверные роли',
     status: 'Контур готов',
-    body: 'В API добавлена демонстрационная проверка роли при создании заявки; в банке роль должна приходить из серверной сессии.',
-    proof: 'POST /api/requests проверяет роль',
+    body: 'В API добавлена проверка роли при создании заявки, согласовании заявки и изменении лимита.',
+    proof: 'POST/PATCH /api/requests · PATCH /api/limits',
     tone: 'good' as Tone,
   },
   {
@@ -592,6 +592,9 @@ export default function Home() {
     CNY: currencyLimits.CNY.reserve,
   });
   const [flows, setFlows] = useState(initialFlows);
+  const [serverStorageStatus, setServerStorageStatus] = useState(
+    'ожидание синхронизации',
+  );
   const [auditLog, setAuditLog] = useState<AuditEvent[]>([
     {
       id: 100,
@@ -633,6 +636,77 @@ export default function Home() {
     }
     setIsHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    let isActive = true;
+    fetch('/api/requests')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('сервер не ответил');
+        }
+        return response.json() as Promise<{ items?: Flow[]; storage?: string }>;
+      })
+      .then((data) => {
+        if (!isActive) return;
+        if (data.storage === 'd1') {
+          setServerStorageStatus('заявки синхронизированы с серверной БД');
+        } else {
+          setServerStorageStatus('локальный режим, серверная БД недоступна');
+        }
+        if (data.items?.length) {
+          setFlows((current) => mergeServerFlows(data.items ?? [], current));
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setServerStorageStatus('локальный режим, API недоступен');
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    let isActive = true;
+    fetch('/api/limits')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('сервер не ответил');
+        }
+        return response.json() as Promise<{
+          limits?: Record<Currency, number>;
+          storage?: string;
+        }>;
+      })
+      .then((data) => {
+        if (!isActive) return;
+        if (data.limits) {
+          setLimitOverrides(data.limits);
+        }
+        if (data.storage === 'd1') {
+          setServerStorageStatus('заявки и лимиты синхронизированы с D1');
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setServerStorageStatus((current) =>
+            current.includes('заявки')
+              ? current
+              : 'локальный режим, API лимитов недоступен',
+          );
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [isHydrated]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -719,7 +793,7 @@ export default function Home() {
     Number(pendingCount > 0) +
     Number(manualOutflow > 250);
 
-  function createRequest(event: FormEvent<HTMLFormElement>) {
+  async function createRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeAccess.canCreate) {
       addAudit('Доступ запрещен', `${role} не может создавать заявки.`);
@@ -728,27 +802,46 @@ export default function Home() {
     const value = Number(requestAmount) || 0;
     if (!requestTitle.trim() || value <= 0) return;
 
-    setFlows((current) => [
-      {
-        id: Date.now(),
-        time: 'Новая',
-        source: requestTitle.trim(),
-        owner: 'Подразделение',
-        type: 'Заявка',
-        amount: `-${value} млн ${currency}`,
-        currency,
-        impact: -value,
-        status: 'На согласовании',
-        tone: value > 250 ? 'critical' : 'warning',
-        priority: value > 250 ? 'Высокий' : 'Средний',
-        route:
-          value > 250
-            ? 'Подразделение → Казначейство → Руководитель'
-            : 'Подразделение → Казначейство',
-        comment: 'Создано вручную в демонстрационном сценарии.',
-      },
-      ...current,
-    ]);
+    const localFlow = createLocalFlow(requestTitle.trim(), value, currency);
+
+    try {
+      const response = await fetch('/api/requests', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-demo-role': roleApiCode(role),
+        },
+        body: JSON.stringify({
+          title: requestTitle.trim(),
+          amountMillions: value,
+          currency,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        flow?: Flow;
+        message?: string;
+        storage?: string;
+      } | null;
+
+      if (!response.ok) {
+        addAudit(
+          'Сервер отклонил заявку',
+          data?.message ?? `${role} не прошел серверную проверку роли.`,
+        );
+        return;
+      }
+
+      setFlows((current) => [data?.flow ?? localFlow, ...current]);
+      setServerStorageStatus(
+        data?.storage === 'd1'
+          ? 'новая заявка сохранена в серверной БД'
+          : 'заявка создана в демонстрационном режиме',
+      );
+    } catch {
+      setFlows((current) => [localFlow, ...current]);
+      setServerStorageStatus('API недоступен, заявка сохранена локально');
+    }
+
     addAudit(
       'Создана заявка',
       `${requestTitle.trim()} на ${value} млн ${currency}.`,
@@ -757,12 +850,49 @@ export default function Home() {
     setRequestAmount('120');
   }
 
-  function updateFlowStatus(id: number, status: 'Согласовано' | 'Отклонено') {
+  async function updateFlowStatus(
+    id: Flow['id'],
+    status: 'Согласовано' | 'Отклонено',
+  ) {
     if (!activeAccess.canApprove) {
       addAudit('Доступ запрещен', `${role} не может согласовывать заявки.`);
       return;
     }
     const target = flows.find((flow) => flow.id === id);
+
+    if (typeof id === 'string') {
+      try {
+        const response = await fetch('/api/requests', {
+          method: 'PATCH',
+          headers: {
+            'content-type': 'application/json',
+            'x-demo-role': roleApiCode(role),
+          },
+          body: JSON.stringify({ id, status }),
+        });
+        const data = (await response.json().catch(() => null)) as {
+          message?: string;
+          storage?: string;
+        } | null;
+        if (!response.ok) {
+          addAudit(
+            'Сервер отклонил решение',
+            data?.message ?? `${role} не прошел серверную проверку роли.`,
+          );
+          return;
+        }
+        setServerStorageStatus(
+          data?.storage === 'd1'
+            ? 'решение сохранено в серверной БД'
+            : 'решение сохранено в демонстрационном режиме',
+        );
+      } catch {
+        setServerStorageStatus(
+          'API недоступен, решение сохранено только локально',
+        );
+      }
+    }
+
     setFlows((current) =>
       current.map((flow) =>
         flow.id === id
@@ -770,6 +900,10 @@ export default function Home() {
               ...flow,
               status,
               tone: status === 'Согласовано' ? 'good' : 'neutral',
+              comment:
+                status === 'Согласовано'
+                  ? 'Решение сохранено. Заявку можно исполнять.'
+                  : 'Решение сохранено. Заявка исключена из прогноза.',
             }
           : flow,
       ),
@@ -825,13 +959,43 @@ export default function Home() {
     );
   }
 
-  function updateLimit() {
+  async function updateLimit() {
     if (!activeAccess.canSetLimits) {
       addAudit('Доступ запрещен', `${role} не может менять лимиты.`);
       return;
     }
     const value = Number(limitDraft);
     if (!Number.isFinite(value) || value <= 0) return;
+
+    try {
+      const response = await fetch('/api/limits', {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          'x-demo-role': roleApiCode(role),
+        },
+        body: JSON.stringify({ currency, reserve: value }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        message?: string;
+        storage?: string;
+      } | null;
+      if (!response.ok) {
+        addAudit(
+          'Сервер отклонил лимит',
+          data?.message ?? `${role} не прошел серверную проверку роли.`,
+        );
+        return;
+      }
+      setServerStorageStatus(
+        data?.storage === 'd1'
+          ? 'лимит сохранен в серверной БД'
+          : 'лимит сохранен в демонстрационном режиме',
+      );
+    } catch {
+      setServerStorageStatus('API недоступен, лимит сохранен только локально');
+    }
+
     setLimitOverrides((current) => ({ ...current, [currency]: value }));
     addAudit(
       'Изменен лимит',
@@ -1043,6 +1207,10 @@ export default function Home() {
                   >
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
                     Официальный проект для практики
+                  </Badge>
+                  <Badge variant="secondary" className="ml-2 mt-2 h-7 gap-2">
+                    <Database size={14} aria-hidden="true" />
+                    {serverStorageStatus}
                   </Badge>
                   <h2 className="mt-5 max-w-2xl text-3xl font-semibold tracking-tight sm:text-5xl">
                     Планировщик ликвидности и денежных потоков для банка.
@@ -1285,7 +1453,7 @@ export default function Home() {
             </TabsContent>
 
             <TabsContent value="industrial">
-              <IndustrialWorkspace />
+              <IndustrialWorkspace serverStorageStatus={serverStorageStatus} />
             </TabsContent>
 
             <TabsContent value="roadmap">
@@ -1418,7 +1586,8 @@ function Sidebar({
             Банковский контур
           </CardTitle>
           <CardDescription className="text-white/55">
-            Прототип без базы. Следующий шаг: хранение заявок и роли.
+            Заявки сохраняются через серверный API и D1. Роли проверяются на
+            сервере.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -1894,7 +2063,10 @@ function FlowsCard({
 }: {
   flows: Flow[];
   canApprove: boolean;
-  updateFlowStatus: (id: number, status: 'Согласовано' | 'Отклонено') => void;
+  updateFlowStatus: (
+    id: Flow['id'],
+    status: 'Согласовано' | 'Отклонено',
+  ) => void;
   exportCsv: () => void;
 }) {
   return (
@@ -2390,22 +2562,26 @@ function ReportsWorkspace({
   );
 }
 
-function IndustrialWorkspace() {
+function IndustrialWorkspace({
+  serverStorageStatus,
+}: {
+  serverStorageStatus: string;
+}) {
   const summary = [
     {
       label: 'API-контур',
-      value: '4 маршрута',
-      detail: 'состояние, сводка, заявки, готовность',
+      value: '6 маршрутов',
+      detail: 'состояние, сводка, заявки, лимиты, готовность',
     },
     {
       label: 'База данных',
-      value: '8 таблиц',
-      detail: 'пользователи, потоки, лимиты, аудит',
+      value: 'D1',
+      detail: serverStorageStatus,
     },
     {
       label: 'Контроль ролей',
       value: 'сервер',
-      detail: 'демо-проверка при создании заявки',
+      detail: 'создание и согласование проверяются API',
     },
     {
       label: 'Интеграции',
@@ -2490,9 +2666,15 @@ function IndustrialWorkspace() {
                 'сводка ликвидности и источников данных',
               ],
               ['GET /api/requests', 'реестр заявок и маршрутов согласования'],
+              ['GET /api/limits', 'чтение минимальных лимитов из D1'],
+              ['POST /api/requests', 'создание заявки с записью в D1'],
               [
-                'POST /api/requests',
-                'создание заявки с серверной проверкой роли',
+                'PATCH /api/requests',
+                'согласование или отклонение с проверкой роли',
+              ],
+              [
+                'PATCH /api/limits',
+                'изменение лимита только для риск-менеджера',
               ],
               [
                 'GET /api/industrial-readiness',
@@ -3264,6 +3446,51 @@ function statusClass(tone: Tone) {
   if (tone === 'good')
     return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   return 'border-slate-200 bg-slate-100 text-slate-700';
+}
+
+function createLocalFlow(
+  title: string,
+  value: number,
+  currency: Currency,
+): Flow {
+  return {
+    id: Date.now(),
+    time: 'Новая',
+    source: title,
+    owner: 'Подразделение',
+    type: 'Заявка',
+    amount: `-${value} млн ${currency}`,
+    currency,
+    impact: -value,
+    status: 'На согласовании',
+    tone: value > 250 ? 'critical' : 'warning',
+    priority: value > 250 ? 'Высокий' : 'Средний',
+    route:
+      value > 250
+        ? 'Подразделение → Казначейство → Руководитель'
+        : 'Подразделение → Казначейство',
+    comment:
+      'Заявка сохранена локально, потому что серверный API недоступен в текущем окружении.',
+  };
+}
+
+function mergeServerFlows(serverFlows: Flow[], currentFlows: Flow[]) {
+  const knownIds = new Set(serverFlows.map((flow) => flow.id));
+  return [
+    ...serverFlows,
+    ...currentFlows.filter((flow) => !knownIds.has(flow.id)),
+  ];
+}
+
+function roleApiCode(role: UserRole) {
+  const codes: Record<UserRole, string> = {
+    Казначей: 'treasury',
+    'Риск-менеджер': 'risk',
+    Руководитель: 'executive',
+    Аудитор: 'auditor',
+  };
+
+  return codes[role];
 }
 
 function auditFingerprint(event: AuditEvent, index: number) {
