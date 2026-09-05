@@ -585,6 +585,9 @@ export default function Home() {
               <TabsTrigger value="flows" className="px-4">Потоки</TabsTrigger>
               <TabsTrigger value="limits" className="px-4">Лимиты</TabsTrigger>
               <TabsTrigger value="audit" className="px-4">Аудит</TabsTrigger>
+              <TabsTrigger value="requests" className="px-4">Заявки</TabsTrigger>
+              <TabsTrigger value="reports" className="px-4">Отчеты</TabsTrigger>
+              <TabsTrigger value="settings" className="px-4">Настройки</TabsTrigger>
               <TabsTrigger value="roadmap" className="px-4">Все доработки</TabsTrigger>
             </TabsList>
 
@@ -623,6 +626,24 @@ export default function Home() {
 
             <TabsContent value="audit">
               <AuditCard auditLog={auditLog} />
+            </TabsContent>
+
+            <TabsContent value="requests">
+              <RequestsWorkspace flows={flows} pendingCount={pendingCount} approvedCount={approvedCount} rejectedCount={rejectedCount} />
+            </TabsContent>
+
+            <TabsContent value="reports">
+              <ReportsWorkspace
+                totalInflow={totalInflow}
+                totalOutflow={totalOutflow}
+                deficit={deficit}
+                pendingCount={pendingCount}
+                currency={currency}
+              />
+            </TabsContent>
+
+            <TabsContent value="settings">
+              <SettingsWorkspace role={role} activeAccess={activeAccess} limitOverrides={limitOverrides} />
             </TabsContent>
 
             <TabsContent value="roadmap">
@@ -1156,6 +1177,207 @@ function AuditCard({ auditLog }: { auditLog: AuditEvent[] }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function RequestsWorkspace({
+  flows,
+  pendingCount,
+  approvedCount,
+  rejectedCount,
+}: {
+  flows: Flow[];
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+}) {
+  const requestFlows = flows.filter((flow) =>
+    ['Заявка', 'Валюта', 'Размещение', 'Расход'].includes(flow.type),
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard title="Всего заявок" value={`${requestFlows.length}`} detail="в текущем операционном дне" state="neutral" icon={FileCheck2} />
+        <MetricCard title="На согласовании" value={`${pendingCount}`} detail="ожидают решения" state={pendingCount > 0 ? 'warning' : 'good'} icon={Clock3} />
+        <MetricCard title="Согласовано" value={`${approvedCount}`} detail="можно исполнять" state="good" icon={CheckCircle2} />
+        <MetricCard title="Отклонено" value={`${rejectedCount}`} detail="исключены из прогноза" state="neutral" icon={X} />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Реестр заявок подразделений</CardTitle>
+          <CardDescription>
+            В промышленной версии здесь будут карточки заявок, комментарии, вложения и маршрут согласования.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          {requestFlows.map((flow) => (
+            <div key={flow.id} className="rounded-xl border bg-background/70 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{flow.source}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{flow.owner} · {flow.amount}</p>
+                </div>
+                <Badge variant="outline" className={statusClass(flow.tone)}>{flow.status}</Badge>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                <span className="rounded-lg bg-muted p-2">Создание</span>
+                <span className="rounded-lg bg-muted p-2">Согласование</span>
+                <span className="rounded-lg bg-muted p-2">Исполнение</span>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ReportsWorkspace({
+  totalInflow,
+  totalOutflow,
+  deficit,
+  pendingCount,
+  currency,
+}: {
+  totalInflow: number;
+  totalOutflow: number;
+  deficit: number;
+  pendingCount: number;
+  currency: Currency;
+}) {
+  const reports = [
+    { title: 'Ежедневный отчет по ликвидности', owner: 'Казначейство', status: 'Готов к выгрузке' },
+    { title: 'План-факт денежных потоков', owner: 'Финансовый департамент', status: 'Требует сверки' },
+    { title: 'Отчет по лимитам', owner: 'Риск-менеджмент', status: deficit > 0 ? 'Есть нарушение' : 'Нарушений нет' },
+    { title: 'Отчет по заявкам', owner: 'Операционный блок', status: `${pendingCount} на согласовании` },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Отчетный модуль</CardTitle>
+          <CardDescription>
+            Раздел показывает, какие отчеты должна формировать система для руководства и подразделений.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          <FlowSummary label="Поступления" value={`+${totalInflow} млн`} tone="positive" />
+          <FlowSummary label="Списания" value={`-${totalOutflow} млн`} tone="negative" />
+          <FlowSummary label="Дефицит" value={`${deficit} млн ${currency}`} tone="neutral" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Список отчетов</CardTitle>
+          <CardDescription>Для практики можно показать как будущий модуль выгрузки и контроля.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Отчет</TableHead>
+                <TableHead>Ответственный блок</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead>Действие</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {reports.map((report) => (
+                <TableRow key={report.title}>
+                  <TableCell className="font-medium">{report.title}</TableCell>
+                  <TableCell className="text-muted-foreground">{report.owner}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{report.status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="outline">
+                      <Download aria-hidden="true" />
+                      Выгрузить
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SettingsWorkspace({
+  role,
+  activeAccess,
+  limitOverrides,
+}: {
+  role: UserRole;
+  activeAccess: (typeof roleAccess)[UserRole];
+  limitOverrides: Record<Currency, number>;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Права текущей роли</CardTitle>
+            <CardDescription>{role}: {activeAccess.description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <AccessRow label="Создание заявок" enabled={activeAccess.canCreate} />
+            <AccessRow label="Согласование операций" enabled={activeAccess.canApprove} />
+            <AccessRow label="Изменение лимитов" enabled={activeAccess.canSetLimits} />
+            <AccessRow label="Просмотр аудита" enabled />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Лимиты по валютам</CardTitle>
+            <CardDescription>В демо-версии лимиты хранятся в браузере, в реальной версии — в базе данных.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-4">
+            {(Object.keys(limitOverrides) as Currency[]).map((code) => (
+              <div key={code} className="rounded-xl border bg-background/70 p-4">
+                <p className="text-sm text-muted-foreground">{code}</p>
+                <p className="mt-1 text-2xl font-semibold">{limitOverrides[code]} млн</p>
+                <p className="mt-2 text-xs text-muted-foreground">минимальный остаток</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Будущие интеграции</CardTitle>
+          <CardDescription>Что должно подключаться в промышленной версии системы.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {['Автоматизированная банковская система', 'Кредитный модуль', 'Депозитный модуль', 'Валютные операции'].map((item) => (
+            <div key={item} className="rounded-xl border bg-background/70 p-4">
+              <Badge variant="secondary">планируется</Badge>
+              <p className="mt-3 font-semibold">{item}</p>
+              <p className="mt-2 text-sm leading-5 text-muted-foreground">
+                Источник данных для автоматического расчета ликвидности.
+              </p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AccessRow({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border bg-background/70 p-3">
+      <span className="text-sm font-medium">{label}</span>
+      <Badge variant={enabled ? 'secondary' : 'outline'}>{enabled ? 'Разрешено' : 'Запрещено'}</Badge>
+    </div>
   );
 }
 
