@@ -14,7 +14,8 @@ export async function GET() {
         id: 2,
         name: 'Серверное API',
         status: 'реализован контур',
-        evidence: '/api/health, /api/liquidity/summary, /api/requests',
+        evidence:
+          '/api/health, /api/liquidity/summary, /api/requests, /api/limits, /api/audit',
       },
       {
         id: 3,
@@ -26,7 +27,7 @@ export async function GET() {
         id: 4,
         name: 'Серверная ролевая модель',
         status: 'реализован демонстрационный контроль',
-        evidence: 'POST /api/requests проверяет роль',
+        evidence: 'POST/PATCH /api/requests и PATCH /api/limits проверяют роль',
       },
       {
         id: 5,
@@ -44,7 +45,7 @@ export async function GET() {
         id: 7,
         name: 'Неизменяемый аудит',
         status: 'спроектировано',
-        evidence: 'таблица audit_events с hash-chain',
+        evidence: 'таблица audit_events с hash-chain и GET /api/audit',
       },
       {
         id: 8,

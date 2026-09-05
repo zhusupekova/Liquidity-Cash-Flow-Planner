@@ -103,7 +103,7 @@ type Flow = {
 };
 
 type AuditEvent = {
-  id: number;
+  id: number | string;
   time: string;
   action: string;
   detail: string;
@@ -511,8 +511,9 @@ const industrialReadiness = [
   {
     title: '2. Серверный API',
     status: 'Добавлено',
-    body: 'Созданы API-точки для состояния сервиса, сводки ликвидности, заявок, лимитов и промышленной готовности.',
-    proof: '/api/health · /api/liquidity/summary · /api/requests · /api/limits',
+    body: 'Созданы API-точки для состояния сервиса, сводки ликвидности, заявок, лимитов, аудита и промышленной готовности.',
+    proof:
+      '/api/health · /api/liquidity/summary · /api/requests · /api/limits · /api/audit',
     tone: 'good' as Tone,
   },
   {
@@ -664,6 +665,33 @@ export default function Home() {
           setServerStorageStatus('локальный режим, API недоступен');
         }
       });
+
+    return () => {
+      isActive = false;
+    };
+  }, [isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    let isActive = true;
+    fetch('/api/audit')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('сервер не ответил');
+        }
+        return response.json() as Promise<{
+          items?: AuditEvent[];
+          storage?: string;
+        }>;
+      })
+      .then((data) => {
+        if (!isActive) return;
+        if (data.storage === 'd1' && data.items?.length) {
+          setAuditLog((current) => mergeAuditEvents(data.items ?? [], current));
+        }
+      })
+      .catch(() => undefined);
 
     return () => {
       isActive = false;
@@ -2570,8 +2598,8 @@ function IndustrialWorkspace({
   const summary = [
     {
       label: 'API-контур',
-      value: '6 маршрутов',
-      detail: 'состояние, сводка, заявки, лимиты, готовность',
+      value: '7 маршрутов',
+      detail: 'состояние, сводка, заявки, лимиты, аудит',
     },
     {
       label: 'База данных',
@@ -2676,6 +2704,7 @@ function IndustrialWorkspace({
                 'PATCH /api/limits',
                 'изменение лимита только для риск-менеджера',
               ],
+              ['GET /api/audit', 'чтение неизменяемого журнала из D1'],
               [
                 'GET /api/industrial-readiness',
                 'статус промышленной готовности',
@@ -3480,6 +3509,17 @@ function mergeServerFlows(serverFlows: Flow[], currentFlows: Flow[]) {
     ...serverFlows,
     ...currentFlows.filter((flow) => !knownIds.has(flow.id)),
   ];
+}
+
+function mergeAuditEvents(
+  serverEvents: AuditEvent[],
+  currentEvents: AuditEvent[],
+) {
+  const knownIds = new Set(serverEvents.map((event) => event.id));
+  return [
+    ...serverEvents,
+    ...currentEvents.filter((event) => !knownIds.has(event.id)),
+  ].slice(0, 12);
 }
 
 function roleApiCode(role: UserRole) {

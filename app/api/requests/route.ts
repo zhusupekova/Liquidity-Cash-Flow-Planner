@@ -26,6 +26,10 @@ function getDb() {
   return (env as { DB?: D1Database }).DB;
 }
 
+function prefixedId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function normalizeRole(role: string | null) {
   const roles: Record<string, string> = {
     treasury: 'treasury',
@@ -155,7 +159,7 @@ async function insertAudit(
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
-      `AUD-${Date.now()}`,
+      prefixedId('AUD'),
       actorId,
       action,
       entityType,
@@ -259,8 +263,8 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getDb();
-  const flowId = `FLOW-${Date.now()}`;
-  const requestId = `REQ-${Date.now()}`;
+  const flowId = prefixedId('FLOW');
+  const requestId = prefixedId('REQ');
   const route = routeForAmount(amountMinor, body.currency);
 
   if (!db) {
@@ -273,56 +277,69 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const actorId = await ensureActor(db, role);
+  try {
+    const actorId = await ensureActor(db, role);
 
-  await db.batch([
-    db
-      .prepare(
-        `INSERT INTO liquidity_flows
-          (id, operation_date, source_system, department, operation_type, amount_minor, currency, status, priority, expected_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        flowId,
-        '2026-09-04',
-        body.title,
-        'Подразделение',
-        'Заявка',
+    await db.batch([
+      db
+        .prepare(
+          `INSERT INTO liquidity_flows
+            (id, operation_date, source_system, department, operation_type, amount_minor, currency, status, priority, expected_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          flowId,
+          '2026-09-04',
+          body.title,
+          'Подразделение',
+          'Заявка',
+          amountMinor,
+          body.currency,
+          'pending',
+          Math.abs(amountMinor) > 250_000_000 ? 'Высокий' : 'Средний',
+          'Новая',
+        ),
+      db
+        .prepare(
+          `INSERT INTO approval_requests
+            (id, flow_id, status, route_name, requested_by, assigned_to_role)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          requestId,
+          flowId,
+          'pending',
+          route,
+          actorId,
+          route.includes('Руководитель') ? 'executive' : 'treasury',
+        ),
+    ]);
+
+    await insertAudit(
+      db,
+      actorId,
+      'request.created',
+      'approval_request',
+      requestId,
+      {
+        title: body.title,
         amountMinor,
-        body.currency,
-        'pending',
-        Math.abs(amountMinor) > 250_000_000 ? 'Высокий' : 'Средний',
-        'Новая',
-      ),
-    db
-      .prepare(
-        `INSERT INTO approval_requests
-          (id, flow_id, status, route_name, requested_by, assigned_to_role)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        requestId,
-        flowId,
-        'pending',
+        currency: body.currency,
         route,
-        actorId,
-        route.includes('Руководитель') ? 'executive' : 'treasury',
-      ),
-  ]);
-
-  await insertAudit(
-    db,
-    actorId,
-    'request.created',
-    'approval_request',
-    requestId,
-    {
-      title: body.title,
-      amountMinor,
-      currency: body.currency,
-      route,
-    },
-  );
+      },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Заявка не сохранена',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Серверная база данных временно недоступна.',
+      },
+      { status: 503 },
+    );
+  }
 
   return NextResponse.json(
     {
@@ -396,24 +413,59 @@ export async function PATCH(request: NextRequest) {
   }
 
   const serverStatus = body.status === 'Согласовано' ? 'approved' : 'rejected';
-  const actorId = await ensureActor(db, role);
+  try {
+    const existing = await db
+      .prepare(`SELECT id FROM approval_requests WHERE flow_id = ? LIMIT 1`)
+      .bind(body.id)
+      .first<{ id: string }>();
 
-  await db.batch([
-    db
-      .prepare(
-        `UPDATE approval_requests
-         SET status = ?, decision_comment = ?, decided_at = CURRENT_TIMESTAMP
-         WHERE flow_id = ?`,
-      )
-      .bind(serverStatus, `${roleTitle(role)}: ${body.status}`, body.id),
-    db
-      .prepare(`UPDATE liquidity_flows SET status = ? WHERE id = ?`)
-      .bind(serverStatus, body.id),
-  ]);
+    if (!existing) {
+      return NextResponse.json(
+        {
+          error: 'Заявка не найдена',
+          message: 'В базе данных нет заявки с таким идентификатором.',
+        },
+        { status: 404 },
+      );
+    }
 
-  await insertAudit(db, actorId, 'request.decided', 'liquidity_flow', body.id, {
-    status: body.status,
-  });
+    const actorId = await ensureActor(db, role);
+
+    await db.batch([
+      db
+        .prepare(
+          `UPDATE approval_requests
+           SET status = ?, decision_comment = ?, decided_at = CURRENT_TIMESTAMP
+           WHERE flow_id = ?`,
+        )
+        .bind(serverStatus, `${roleTitle(role)}: ${body.status}`, body.id),
+      db
+        .prepare(`UPDATE liquidity_flows SET status = ? WHERE id = ?`)
+        .bind(serverStatus, body.id),
+    ]);
+
+    await insertAudit(
+      db,
+      actorId,
+      'request.decided',
+      'liquidity_flow',
+      body.id,
+      {
+        status: body.status,
+      },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Решение не сохранено',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Серверная база данных временно недоступна.',
+      },
+      { status: 503 },
+    );
+  }
 
   return NextResponse.json({
     id: body.id,

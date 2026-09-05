@@ -13,6 +13,10 @@ function getDb() {
   return (env as { DB?: D1Database }).DB;
 }
 
+function prefixedId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function normalizeRole(role: string | null) {
   const roles: Record<string, string> = {
     risk: 'risk',
@@ -90,7 +94,7 @@ async function insertAudit(
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
-      `AUD-${Date.now()}`,
+      prefixedId('AUD'),
       actorId,
       action,
       'liquidity_limit',
@@ -181,34 +185,48 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const actorId = await ensureActor(db, role);
   const limitId = `LIMIT-${body.currency}-MINIMUM-BALANCE`;
-  const amountMinor = Math.round(body.reserve * 1_000_000);
 
-  await db
-    .prepare(
-      `INSERT INTO liquidity_limits
-        (id, currency, limit_type, amount_minor, effective_from, updated_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-       ON CONFLICT(id) DO UPDATE SET
-        amount_minor = excluded.amount_minor,
-        updated_by = excluded.updated_by,
-        updated_at = CURRENT_TIMESTAMP`,
-    )
-    .bind(
-      limitId,
-      body.currency,
-      'minimum_balance',
-      amountMinor,
-      '2026-09-04',
-      actorId,
-    )
-    .run();
+  try {
+    const actorId = await ensureActor(db, role);
+    const amountMinor = Math.round(body.reserve * 1_000_000);
 
-  await insertAudit(db, actorId, 'limit.updated', limitId, {
-    currency: body.currency,
-    reserve: body.reserve,
-  });
+    await db
+      .prepare(
+        `INSERT INTO liquidity_limits
+          (id, currency, limit_type, amount_minor, effective_from, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(id) DO UPDATE SET
+          amount_minor = excluded.amount_minor,
+          updated_by = excluded.updated_by,
+          updated_at = CURRENT_TIMESTAMP`,
+      )
+      .bind(
+        limitId,
+        body.currency,
+        'minimum_balance',
+        amountMinor,
+        '2026-09-04',
+        actorId,
+      )
+      .run();
+
+    await insertAudit(db, actorId, 'limit.updated', limitId, {
+      currency: body.currency,
+      reserve: body.reserve,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Лимит не сохранен',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Серверная база данных временно недоступна.',
+      },
+      { status: 503 },
+    );
+  }
 
   return NextResponse.json({
     currency: body.currency,
