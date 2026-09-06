@@ -946,6 +946,15 @@ export default function Home() {
     );
   }
 
+  function openWorkspaceTab(value: TabValue) {
+    setActiveTab(value);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById('workspace-tabs')
+        ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  }
+
   function resetDemo() {
     setFlows(initialFlows);
     setAuditLog([
@@ -1176,7 +1185,7 @@ export default function Home() {
       <Sidebar
         activeTab={activeTab}
         pendingCount={pendingCount}
-        setActiveTab={setActiveTab}
+        setActiveTab={openWorkspaceTab}
         startPresentationMode={startPresentationMode}
       />
 
@@ -1359,6 +1368,7 @@ export default function Home() {
           </section>
 
           <Tabs
+            id="workspace-tabs"
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as TabValue)}
             className="space-y-4"
@@ -1519,7 +1529,8 @@ function Sidebar({
               type="button"
               key={item.label}
               onClick={() => setActiveTab(item.tab)}
-              className={`group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
+              aria-current={isActive ? 'page' : undefined}
+              className={`group flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition ${
                 isActive
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-inner'
                   : 'text-white/62 hover:bg-sidebar-accent hover:text-white'
