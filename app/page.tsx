@@ -9,7 +9,6 @@ import {
   Banknote,
   Bell,
   BookOpenCheck,
-  Building2,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -366,59 +365,6 @@ const valueChain = [
   },
 ];
 
-const readinessItems = [
-  {
-    label: 'Дашборд и прогноз',
-    value: 98,
-    detail: 'готовый рабочий сценарий казначейства',
-    status: 'идеально для защиты',
-    proof:
-      '7-дневный прогноз, сценарии, валюты, риск-день, дефицит, алерты и влияние заявок на остаток.',
-  },
-  {
-    label: 'Заявки и согласование',
-    value: 96,
-    detail: 'создание, решение, маршрут и серверное сохранение',
-    status: 'почти промышленный уровень',
-    proof:
-      'Заявки сохраняются в D1, согласуются через серверный PATCH и меняют прогноз ликвидности.',
-  },
-  {
-    label: 'Роли и лимиты',
-    value: 94,
-    detail: 'права проверяются интерфейсом и сервером',
-    status: 'готово для демонстрации контроля',
-    proof:
-      'Казначей, риск-менеджер, руководитель и аудитор имеют разные действия; лимиты меняет только риск-менеджер.',
-  },
-  {
-    label: 'Промышленный контур',
-    value: 88,
-    detail: 'API, D1, аудит, документы и интеграционный план',
-    status: 'готов к пилоту после доступов банка',
-    proof:
-      'Добавлены серверные маршруты, схема БД, миграция, аудит, документация API и план безопасности.',
-  },
-];
-
-const readinessSummary = [
-  {
-    label: 'Средняя готовность',
-    value: '94%',
-    detail: 'уровень официальной презентации проекта',
-  },
-  {
-    label: 'Ключевой риск',
-    value: 'доступы банка',
-    detail: 'АБС, SSO, SMS/e-mail и тестовые банковские данные',
-  },
-  {
-    label: 'Следующий рубеж',
-    value: 'пилот',
-    detail: 'подключение тестового контура и регламентов ИБ',
-  },
-];
-
 const expertVerdict = [
   {
     title: 'Сильная сторона',
@@ -446,15 +392,6 @@ const expertVerdict = [
   },
 ];
 
-const acceptanceCriteria = [
-  'Казначей видит прогноз ликвидности, риск-день и предупреждения.',
-  'Заявка подразделения создается и сохраняется через серверный маршрут.',
-  'Руководитель или казначей принимает решение по заявке.',
-  'Одобренная или отклоненная заявка меняет операционную картину.',
-  'Риск-менеджер меняет лимит, а другие роли не имеют такого права.',
-  'Аудитор видит историю действий без права изменения данных.',
-];
-
 const commissionTheses = [
   {
     title: 'Главный тезис',
@@ -467,29 +404,6 @@ const commissionTheses = [
   {
     title: 'Что нужно банку',
     body: 'Тестовые доступы к АБС, корпоративная авторизация, шлюзы уведомлений и регламенты ИБ.',
-  },
-];
-
-const bankEffect = [
-  {
-    label: 'Скорость расчета',
-    value: 'до минут',
-    detail: 'вместо ручной сверки таблиц',
-  },
-  {
-    label: 'Риск кассового разрыва',
-    value: 'ниже',
-    detail: 'за счет ранних предупреждений',
-  },
-  {
-    label: 'Свободные ресурсы',
-    value: 'видны',
-    detail: 'для межбанка и валютных решений',
-  },
-  {
-    label: 'Контроль действий',
-    value: 'прозрачен',
-    detail: 'через журнал аудита',
   },
 ];
 
@@ -1444,8 +1358,6 @@ export default function Home() {
             <Checklist />
           </section>
 
-          <PresentationReadiness />
-
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as TabValue)}
@@ -1569,27 +1481,6 @@ export default function Home() {
               <RoadmapCard />
             </TabsContent>
           </Tabs>
-
-          <section className="grid gap-6 xl:grid-cols-3">
-            <DecisionCard
-              icon={Building2}
-              title="Для презентации"
-              value="Официальный прототип"
-              text="Добавлены паспорт проекта, роли, лимиты, процесс обработки заявок, аудит и план доработок."
-            />
-            <DecisionCard
-              icon={RefreshCw}
-              title="Следующий этап"
-              value="База + роли"
-              text="Заявки должны сохраняться, а действия должны зависеть от роли пользователя."
-            />
-            <DecisionCard
-              icon={CheckCircle2}
-              title="Финальная цель"
-              value="Банковская система"
-              text="Интеграции, аудит, лимиты, стресс-тесты, отчеты и уведомления."
-            />
-          </section>
         </div>
       </section>
     </main>
@@ -2013,136 +1904,6 @@ function Checklist() {
         ))}
       </CardContent>
     </Card>
-  );
-}
-
-function PresentationReadiness() {
-  return (
-    <section
-      className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]"
-      aria-label="Презентационная готовность"
-    >
-      <Card>
-        <CardHeader>
-          <CardTitle>Готовность проекта к защите</CardTitle>
-          <CardDescription>
-            Проект доведен до уровня уверенной демонстрации: рабочий сценарий,
-            серверные роли, база, аудит и честная граница по банковским
-            доступам.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {readinessSummary.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-xl border bg-background/70 p-3"
-              >
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-                <p className="mt-1 text-lg font-semibold">{item.value}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {item.detail}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {readinessItems.map((item) => (
-            <div
-              key={item.label}
-              className="rounded-xl border bg-background/70 p-4"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold">{item.label}</p>
-                    <Badge variant="secondary">{item.status}</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{item.detail}</p>
-                </div>
-                <span className="text-sm font-semibold">{item.value}%</span>
-              </div>
-              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="limit-fill h-2.5 rounded-full bg-primary"
-                  style={{ width: `${item.value}%` }}
-                />
-              </div>
-              <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                {item.proof}
-              </p>
-            </div>
-          ))}
-
-          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-            <div className="flex items-center gap-2">
-              <FileCheck2 size={18} className="text-primary" aria-hidden />
-              <p className="text-sm font-semibold">Экспертное заключение</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Прототип демонстрирует полный управленческий цикл казначейства:
-              планирование, контроль лимитов, заявку, решение, влияние на
-              прогноз и проверяемый аудит. Для промышленной эксплуатации
-              требуется только подключение банковских контуров, SSO и
-              регламентов информационной безопасности.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ожидаемый эффект для банка</CardTitle>
-            <CardDescription>
-              Короткие тезисы, которые усиливают практическую ценность проекта.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            {bankEffect.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-xl border bg-background/70 p-4"
-              >
-                <p className="text-sm text-muted-foreground">{item.label}</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight">
-                  {item.value}
-                </p>
-                <p className="mt-2 text-sm leading-5 text-muted-foreground">
-                  {item.detail}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Приемочные критерии</CardTitle>
-            <CardDescription>
-              Что комиссия должна увидеть в рабочем сценарии.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {acceptanceCriteria.map((item) => (
-              <div
-                key={item}
-                className="flex items-start gap-3 rounded-xl border bg-background/70 p-3"
-              >
-                <CheckCircle2
-                  size={18}
-                  className="mt-0.5 shrink-0 text-primary"
-                  aria-hidden
-                />
-                <p className="text-sm leading-5 text-muted-foreground">
-                  {item}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-    </section>
   );
 }
 
