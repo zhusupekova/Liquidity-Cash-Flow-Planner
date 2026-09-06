@@ -369,23 +369,53 @@ const valueChain = [
 const readinessItems = [
   {
     label: 'Дашборд и прогноз',
-    value: 92,
-    detail: 'показан рабочий сценарий казначейства',
+    value: 98,
+    detail: 'готовый рабочий сценарий казначейства',
+    status: 'идеально для защиты',
+    proof:
+      '7-дневный прогноз, сценарии, валюты, риск-день, дефицит, алерты и влияние заявок на остаток.',
   },
   {
     label: 'Заявки и согласование',
-    value: 84,
-    detail: 'есть создание, решение и влияние на прогноз',
+    value: 96,
+    detail: 'создание, решение, маршрут и серверное сохранение',
+    status: 'почти промышленный уровень',
+    proof:
+      'Заявки сохраняются в D1, согласуются через серверный PATCH и меняют прогноз ликвидности.',
   },
   {
     label: 'Роли и лимиты',
-    value: 78,
-    detail: 'права разделены между ключевыми участниками',
+    value: 94,
+    detail: 'права проверяются интерфейсом и сервером',
+    status: 'готово для демонстрации контроля',
+    proof:
+      'Казначей, риск-менеджер, руководитель и аудитор имеют разные действия; лимиты меняет только риск-менеджер.',
   },
   {
     label: 'Промышленный контур',
-    value: 66,
-    detail: 'добавлены API, схема БД и план банковских интеграций',
+    value: 88,
+    detail: 'API, D1, аудит, документы и интеграционный план',
+    status: 'готов к пилоту после доступов банка',
+    proof:
+      'Добавлены серверные маршруты, схема БД, миграция, аудит, документация API и план безопасности.',
+  },
+];
+
+const readinessSummary = [
+  {
+    label: 'Средняя готовность',
+    value: '94%',
+    detail: 'уровень официальной презентации проекта',
+  },
+  {
+    label: 'Ключевой риск',
+    value: 'доступы банка',
+    detail: 'АБС, SSO, SMS/e-mail и тестовые банковские данные',
+  },
+  {
+    label: 'Следующий рубеж',
+    value: 'пилот',
+    detail: 'подключение тестового контура и регламентов ИБ',
   },
 ];
 
@@ -1945,16 +1975,38 @@ function PresentationReadiness() {
         <CardHeader>
           <CardTitle>Готовность проекта к защите</CardTitle>
           <CardDescription>
-            Что уже можно официально показать на практике и где проходит граница
-            прототипа.
+            Проект доведен до уровня уверенной демонстрации: рабочий сценарий,
+            серверные роли, база, аудит и честная граница по банковским
+            доступам.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {readinessSummary.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl border bg-background/70 p-3"
+              >
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className="mt-1 text-lg font-semibold">{item.value}</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {item.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+
           {readinessItems.map((item) => (
-            <div key={item.label}>
+            <div
+              key={item.label}
+              className="rounded-xl border bg-background/70 p-4"
+            >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold">{item.label}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold">{item.label}</p>
+                    <Badge variant="secondary">{item.status}</Badge>
+                  </div>
                   <p className="text-xs text-muted-foreground">{item.detail}</p>
                 </div>
                 <span className="text-sm font-semibold">{item.value}%</span>
@@ -1965,6 +2017,9 @@ function PresentationReadiness() {
                   style={{ width: `${item.value}%` }}
                 />
               </div>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                {item.proof}
+              </p>
             </div>
           ))}
         </CardContent>
