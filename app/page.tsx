@@ -419,6 +419,57 @@ const readinessSummary = [
   },
 ];
 
+const expertVerdict = [
+  {
+    title: 'Сильная сторона',
+    value: 'сквозной сценарий',
+    detail:
+      'От прогноза и заявки до решения, влияния на остаток и записи в аудит.',
+  },
+  {
+    title: 'Контроль банка',
+    value: 'роли и лимиты',
+    detail:
+      'Действия пользователей разделены по полномочиям и проверяются сервером.',
+  },
+  {
+    title: 'Граница прототипа',
+    value: 'без реальной АБС',
+    detail:
+      'Боевые банковские источники подключаются только через тестовый контур банка.',
+  },
+  {
+    title: 'Итог',
+    value: 'готово к пилоту',
+    detail:
+      'Проект можно защищать как рабочий прототип с понятной промышленной дорожной картой.',
+  },
+];
+
+const acceptanceCriteria = [
+  'Казначей видит прогноз ликвидности, риск-день и предупреждения.',
+  'Заявка подразделения создается и сохраняется через серверный маршрут.',
+  'Руководитель или казначей принимает решение по заявке.',
+  'Одобренная или отклоненная заявка меняет операционную картину.',
+  'Риск-менеджер меняет лимит, а другие роли не имеют такого права.',
+  'Аудитор видит историю действий без права изменения данных.',
+];
+
+const commissionTheses = [
+  {
+    title: 'Главный тезис',
+    body: 'Система переводит планирование ликвидности из ручных таблиц в единый управляемый процесс.',
+  },
+  {
+    title: 'Что уже работает',
+    body: 'Прогноз, заявки, согласование, роли, лимиты, аудит, выгрузки и серверный контур.',
+  },
+  {
+    title: 'Что нужно банку',
+    body: 'Тестовые доступы к АБС, корпоративная авторизация, шлюзы уведомлений и регламенты ИБ.',
+  },
+];
+
 const bankEffect = [
   {
     label: 'Скорость расчета',
@@ -2022,33 +2073,75 @@ function PresentationReadiness() {
               </p>
             </div>
           ))}
+
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <div className="flex items-center gap-2">
+              <FileCheck2 size={18} className="text-primary" aria-hidden />
+              <p className="text-sm font-semibold">Экспертное заключение</p>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Прототип демонстрирует полный управленческий цикл казначейства:
+              планирование, контроль лимитов, заявку, решение, влияние на
+              прогноз и проверяемый аудит. Для промышленной эксплуатации
+              требуется только подключение банковских контуров, SSO и
+              регламентов информационной безопасности.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ожидаемый эффект для банка</CardTitle>
-          <CardDescription>
-            Короткие тезисы, которые усиливают практическую ценность проекта.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          {bankEffect.map((item) => (
-            <div
-              key={item.label}
-              className="rounded-xl border bg-background/70 p-4"
-            >
-              <p className="text-sm text-muted-foreground">{item.label}</p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight">
-                {item.value}
-              </p>
-              <p className="mt-2 text-sm leading-5 text-muted-foreground">
-                {item.detail}
-              </p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Ожидаемый эффект для банка</CardTitle>
+            <CardDescription>
+              Короткие тезисы, которые усиливают практическую ценность проекта.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {bankEffect.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl border bg-background/70 p-4"
+              >
+                <p className="text-sm text-muted-foreground">{item.label}</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight">
+                  {item.value}
+                </p>
+                <p className="mt-2 text-sm leading-5 text-muted-foreground">
+                  {item.detail}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Приемочные критерии</CardTitle>
+            <CardDescription>
+              Что комиссия должна увидеть в рабочем сценарии.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {acceptanceCriteria.map((item) => (
+              <div
+                key={item}
+                className="flex items-start gap-3 rounded-xl border bg-background/70 p-3"
+              >
+                <CheckCircle2
+                  size={18}
+                  className="mt-0.5 shrink-0 text-primary"
+                  aria-hidden
+                />
+                <p className="text-sm leading-5 text-muted-foreground">
+                  {item}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </section>
   );
 }
@@ -3255,6 +3348,47 @@ function DefenseWorkspace() {
               </p>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Финальная позиция руководителя проекта</CardTitle>
+          <CardDescription>
+            Официальные формулировки для защиты и приемки прототипа.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {expertVerdict.map((item) => (
+              <div
+                key={`${item.title}-${item.value}`}
+                className="rounded-xl border bg-background/70 p-4"
+              >
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  {item.title}
+                </p>
+                <p className="mt-1 text-lg font-semibold">{item.value}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {item.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-3">
+            {commissionTheses.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-xl border border-primary/25 bg-primary/5 p-4"
+              >
+                <p className="text-sm font-semibold">{item.title}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {item.body}
+                </p>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
